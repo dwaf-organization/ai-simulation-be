@@ -3,6 +3,7 @@ package com.example.chatgpt.controller;
 import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.dto.stage1.reqDto.RevenueModelReqDto;
 import com.example.chatgpt.dto.stage1.respDto.RevenueModelRespDto;
+import com.example.chatgpt.dto.stage1.respDto.RevenueModelSelectRespDto;
 import com.example.chatgpt.entity.RevenueModel;
 import com.example.chatgpt.service.RevenueModelService;
 import jakarta.validation.Valid;
@@ -18,6 +19,36 @@ import org.springframework.web.bind.annotation.*;
 public class RevenueModelController {
     
     private final RevenueModelService revenueModelService;
+    
+    /**
+     * 수익모델 조회 API (null이 아닌 필드만 응답)
+     * GET /api/v1/stage1/revenue-model/select?eventCode=1&teamCode=5
+     */
+    @GetMapping("/stage1/revenue-model/select")
+    public RespDto<RevenueModelSelectRespDto> getRevenueModel(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("수익모델 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 수익모델 조회
+            RevenueModelSelectRespDto responseData = revenueModelService.getRevenueModel(eventCode, teamCode);
+            
+            log.info("수익모델 조회 성공 - revenueModelCode: {}, revenueCategory: {}", 
+                     responseData.getRevenueModelCode(), responseData.getRevenueCategory());
+            
+            return RespDto.success("수익모델 조회 완료", responseData);
+            
+        } catch (RuntimeException e) {
+            log.warn("수익모델 조회 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("수익모델 조회 실패", e);
+            return RespDto.fail("수익모델 조회 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
     
     /**
      * 수익모델 설정 API

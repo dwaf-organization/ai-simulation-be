@@ -3,9 +3,11 @@ package com.example.chatgpt.controller;
 import com.example.chatgpt.common.dto.PaginationDto;
 import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.dto.team.reqDto.TeamCreateReqDto;
+import com.example.chatgpt.dto.team.reqDto.TeamLoginReqDto;
 import com.example.chatgpt.dto.team.respDto.TeamCreateRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamDeleteRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamListRespDto;
+import com.example.chatgpt.dto.team.respDto.TeamLoginRespDto;
 import com.example.chatgpt.entity.TeamMst;
 import com.example.chatgpt.service.TeamService;
 import jakarta.validation.Valid;
@@ -130,4 +132,34 @@ public class TeamController {
             return RespDto.fail("팀 삭제 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
+    
+    /**
+     * 팀 로그인 API
+     * POST /api/v1/teams/login
+     */
+    @PostMapping("/teams/login")
+    public RespDto<TeamLoginRespDto> loginTeam(@Valid @RequestBody TeamLoginReqDto request) {
+        
+        try {
+            log.info("팀 로그인 요청 - teamId: {}", request.getTeamId());
+            
+            TeamMst team = teamService.loginTeam(request.getTeamId());
+            
+            TeamLoginRespDto responseData = TeamLoginRespDto.from(team);
+            
+            log.info("팀 로그인 성공 - teamId: {}, teamCode: {}, eventCode: {}", 
+                     request.getTeamId(), team.getTeamCode(), team.getEventCode());
+            
+            return RespDto.success("로그인 성공", responseData);
+            
+        } catch (RuntimeException e) {
+            log.warn("팀 로그인 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("팀 로그인 실패", e);
+            return RespDto.fail("로그인 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+    
 }

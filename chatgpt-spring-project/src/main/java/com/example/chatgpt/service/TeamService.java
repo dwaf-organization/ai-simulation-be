@@ -208,6 +208,32 @@ public class TeamService {
     }
     
     /**
+     * 팀 로그인 (teamId로 조회)
+     */
+    public TeamMst loginTeam(String teamId) {
+        try {
+            log.info("팀 로그인 요청 - teamId: {}", teamId);
+            
+            Optional<TeamMst> optionalTeam = teamMstRepository.findByTeamId(teamId);
+            
+            if (optionalTeam.isEmpty()) {
+                throw new RuntimeException("존재하지 않는 팀 ID입니다.");
+            }
+            
+            TeamMst team = optionalTeam.get();
+            
+            log.info("팀 로그인 성공 - teamId: {}, teamCode: {}, eventCode: {}", 
+                     teamId, team.getTeamCode(), team.getEventCode());
+            
+            return team;
+            
+        } catch (Exception e) {
+            log.error("팀 로그인 실패 - teamId: {}", teamId, e);
+            throw new RuntimeException("팀 로그인 실패: " + e.getMessage());
+        }
+    }
+    
+    /**
      * 팀 삭제 결과 클래스
      */
     @lombok.Data

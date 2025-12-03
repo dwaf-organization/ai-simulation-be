@@ -16,6 +16,11 @@ import java.util.Optional;
 public interface TeamMstRepository extends JpaRepository<TeamMst, Integer> {
     
     /**
+     * 팀ID로 팀 조회 (로그인용)
+     */
+    Optional<TeamMst> findByTeamId(String teamId);
+    
+    /**
      * 특정 행사의 팀 목록 조회 (최신순)
      */
     Page<TeamMst> findByEventCodeOrderByCreatedAtDesc(Integer eventCode, Pageable pageable);

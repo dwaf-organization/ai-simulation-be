@@ -1,6 +1,7 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.stage1.reqDto.RevenueModelReqDto;
+import com.example.chatgpt.dto.stage1.respDto.RevenueModelSelectRespDto;
 import com.example.chatgpt.entity.RevenueModel;
 import com.example.chatgpt.entity.Stage1Bizplan;
 import com.example.chatgpt.entity.TeamMst;
@@ -478,5 +479,33 @@ public class RevenueModelService {
     private String formatMoney(Integer amount) {
         if (amount == null) return "0원";
         return String.format("%,d원", amount);
+    }
+    
+    /**
+     * 수익모델 조회 (null이 아닌 필드만 응답)
+     */
+    public RevenueModelSelectRespDto getRevenueModel(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("수익모델 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 수익모델 조회
+            Optional<RevenueModel> optionalModel = revenueModelRepository.findByEventCodeAndTeamCode(eventCode, teamCode);
+            
+            if (optionalModel.isEmpty()) {
+                throw new RuntimeException("수익모델 데이터를 찾을 수 없습니다.");
+            }
+            
+            RevenueModel model = optionalModel.get();
+            
+            log.info("수익모델 조회 완료 - revenueModelCode: {}, revenueCategory: {}", 
+                     model.getRevenueModelCode(), model.getRevenueCategory());
+            
+            // DTO 변환 (null이 아닌 필드만 포함)
+            return RevenueModelSelectRespDto.from(model);
+            
+        } catch (Exception e) {
+            log.error("수익모델 조회 실패", e);
+            throw new RuntimeException("수익모델 조회 실패: " + e.getMessage());
+        }
     }
 }
