@@ -1,0 +1,54 @@
+# 서버 설정
+server:
+  port: 8001
+
+# 파일 업로드 설정
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+  
+  # 데이터베이스 설정 (필요시 추가)
+  datasource:
+    driver-class-name: org.mariadb.jdbc.Driver
+    url: jdbc:mariadb://ai-simulation.cf6og1l7mjlg.ap-northeast-2.rds.amazonaws.com:3306/ai_simulation
+    password: "dwaf8083!!"
+    username: admin
+  
+  # JPA 설정
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  devtools:
+    restart:
+      enabled: true                    # 재시작 활성화
+      additional-paths: src/main/java  # 감시할 경로
+      exclude: static/**,public/**     # 제외할 경로
+    livereload:
+      enabled: true                    # 브라우저 자동 새로고침
+      port: 35729                      # LiveReload 포트
+
+# OpenAI API 설정
+openai:
+  api:
+    key: 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
+    url: https://api.openai.com/v1/chat/completions
+    model: gpt-4o
+    temperature: 0.7
+    max-tokens: 10000
+
+# 로깅 설정
+logging:
+  level:
+    com.example.chatgpt: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
