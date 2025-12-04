@@ -35,7 +35,7 @@ public class Event {
     
     @Column(name = "summary_view_process") 
     @Builder.Default
-    private Integer summaryViewProcess = 1;
+    private Integer summaryViewProcess = 0;
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

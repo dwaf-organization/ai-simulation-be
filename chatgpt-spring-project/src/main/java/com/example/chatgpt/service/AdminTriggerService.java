@@ -96,6 +96,43 @@ public class AdminTriggerService {
     }
     
     /**
+     * 관리자 트리거 - stage_batch_process 변경
+     */
+    @Transactional
+    public String updateStageBatchProcess(Integer eventCode, Integer stageStep) {
+        try {
+            log.info("stage_batch_process 변경 요청 - eventCode: {}, stageStep: {}", eventCode, stageStep);
+            
+            // 1. 행사 존재 여부 확인
+            Event event = eventRepository.findById(eventCode)
+                .orElseThrow(() -> new RuntimeException("존재하지 않는 행사입니다. eventCode: " + eventCode));
+            
+            // 2. stageStep 유효성 검증
+            if (stageStep == null || stageStep < 1 || stageStep > 7) {
+                throw new RuntimeException("유효하지 않은 스테이지입니다. (1-7 범위)");
+            }
+            
+            Integer oldStage = event.getStageBatchProcess();
+            
+            // 3. stage_batch_process 업데이트
+            event.setStageBatchProcess(stageStep);
+            eventRepository.save(event);
+            
+            log.info("stage_batch_process 변경 완료 - eventCode: {}, {} -> {}", eventCode, oldStage, stageStep);
+            
+            return String.format("스테이지가 %d에서 %d로 변경되었습니다.", oldStage, stageStep);
+            
+        } catch (RuntimeException e) {
+            log.error("stage_batch_process 변경 실패: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("stage_batch_process 변경 중 시스템 오류", e);
+            throw new RuntimeException("스테이지 변경 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
      * 2. 해당 행사/스테이지의 모든 팀 요약 조회
      */
     private List<GroupSummary> getTeamSummaries(Integer eventCode, Integer stage) {

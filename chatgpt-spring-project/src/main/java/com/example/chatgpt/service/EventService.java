@@ -116,13 +116,13 @@ public class EventService {
             eventAt = LocalDate.now().toString();
         }
         
-        // Event 엔티티 생성 (기본값 1로 고정)
+        // Event 엔티티 생성 (기본값 사용)
         Event event = Event.builder()
             .eventName(request.getEventName())
             .eventAt(eventAt)
             .eventStatus(1) // 생성 시 항상 진행중
-            .stageBatchProcess(1) // 기본값 1 고정
-            .summaryViewProcess(1) // 기본값 1 고정
+            .stageBatchProcess(1) // 기본값 1
+            .summaryViewProcess(0) // 기본값 0
             .build();
         
         Event savedEvent = eventRepository.save(event);
@@ -311,6 +311,70 @@ public class EventService {
         } catch (Exception e) {
             log.error("행사코드 존재 확인 실패 - eventCode: {}", eventCode, e);
             return false;
+        }
+    }
+    
+    /**
+     * 행사별 프로세스 값 조회
+     */
+    public Event getEventProcess(Integer eventCode) {
+        try {
+            log.info("행사 프로세스 조회 요청 - eventCode: {}", eventCode);
+            
+            Optional<Event> optionalEvent = eventRepository.findById(eventCode);
+            if (optionalEvent.isEmpty()) {
+                throw new RuntimeException("존재하지 않는 행사입니다.");
+            }
+            
+            Event event = optionalEvent.get();
+            
+            log.info("행사 프로세스 조회 완료 - eventCode: {}, stageBatchProcess: {}, summaryViewProcess: {}", 
+                     eventCode, event.getStageBatchProcess(), event.getSummaryViewProcess());
+            
+            return event;
+            
+        } catch (RuntimeException e) {
+            log.error("행사 프로세스 조회 실패: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("행사 프로세스 조회 중 시스템 오류", e);
+            throw new RuntimeException("행사 프로세스 조회 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 행사별 프로세스 값과 스테이지 비교
+     */
+    public Event getEventProcessForCheck(Integer eventCode, Integer stageStep) {
+        try {
+            log.info("행사 프로세스 비교 조회 요청 - eventCode: {}, stageStep: {}", eventCode, stageStep);
+            
+            // 1. 스테이지 유효성 검증
+            if (stageStep == null || stageStep < 1 || stageStep > 7) {
+                throw new RuntimeException("유효하지 않은 스테이지입니다. (1-7 범위)");
+            }
+            
+            // 2. 행사 조회
+            Optional<Event> optionalEvent = eventRepository.findById(eventCode);
+            if (optionalEvent.isEmpty()) {
+                throw new RuntimeException("존재하지 않는 행사입니다.");
+            }
+            
+            Event event = optionalEvent.get();
+            
+            log.info("행사 프로세스 비교 조회 완료 - eventCode: {}, stageStep: {}, stageBatchProcess: {}, summaryViewProcess: {}", 
+                     eventCode, stageStep, event.getStageBatchProcess(), event.getSummaryViewProcess());
+            
+            return event;
+            
+        } catch (RuntimeException e) {
+            log.error("행사 프로세스 비교 조회 실패: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("행사 프로세스 비교 조회 중 시스템 오류", e);
+            throw new RuntimeException("행사 프로세스 비교 조회 중 오류가 발생했습니다.");
         }
     }
 }

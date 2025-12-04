@@ -7,6 +7,8 @@ import com.example.chatgpt.dto.event.reqDto.EventDeleteReqDto;
 import com.example.chatgpt.dto.event.respDto.EventCreateUpdateRespDto;
 import com.example.chatgpt.dto.event.respDto.EventDeleteRespDto;
 import com.example.chatgpt.dto.event.respDto.EventListRespDto;
+import com.example.chatgpt.dto.event.respDto.EventProcessCheckRespDto;
+import com.example.chatgpt.dto.event.respDto.EventProcessRespDto;
 import com.example.chatgpt.dto.event.respDto.EventStatusChangeRespDto;
 import com.example.chatgpt.entity.Event;
 import com.example.chatgpt.service.EventService;
@@ -281,4 +283,67 @@ public class EventController {
             return RespDto.fail("최근 행사 목록 조회 실패: " + e.getMessage());
         }
     }
+    
+    /**
+     * 행사별 프로세스 값 조회 API
+     * GET /api/v1/events/process?eventCode={eventCode}
+     */
+    @GetMapping("/events/process")
+    public RespDto<EventProcessRespDto> getEventProcess(
+            @RequestParam("eventCode") Integer eventCode) {
+    	System.out.println("dddd");
+        try {
+            log.info("행사 프로세스 조회 요청 - eventCode: {}", eventCode);
+            
+            Event event = eventService.getEventProcess(eventCode);
+            EventProcessRespDto responseData = EventProcessRespDto.from(event);
+            
+            log.info("행사 프로세스 조회 완료 - eventCode: {}", eventCode);
+            
+            return RespDto.success("행사 프로세스 조회 성공", responseData);
+            
+        } catch (RuntimeException e) {
+            log.warn("행사 프로세스 조회 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("행사 프로세스 조회 중 오류 발생", e);
+            return RespDto.fail("행사 프로세스 조회 중 오류가 발생했습니다.");
+        }
+    }
+    
+    /**
+     * 행사별 프로세스 값과 스테이지 비교 API
+     * GET /api/v1/events/process/check?eventCode={eventCode}&stageStep={stageStep}
+     */
+    @GetMapping("/events/process/check")
+    public RespDto<List<Integer>> getEventProcessCheck(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("stageStep") Integer stageStep) {
+        
+        try {
+            log.info("행사 프로세스 비교 요청 - eventCode: {}, stageStep: {}", eventCode, stageStep);
+            
+            Event event = eventService.getEventProcessForCheck(eventCode, stageStep);
+            EventProcessCheckRespDto responseData = EventProcessCheckRespDto.from(
+                stageStep, 
+                event.getStageBatchProcess(), 
+                event.getSummaryViewProcess()
+            );
+            
+            log.info("행사 프로세스 비교 완료 - eventCode: {}, stageStep: {}, result: {}", 
+                     eventCode, stageStep, responseData.getResult());
+            
+            return RespDto.success("행사 프로세스 비교 성공", responseData.getResult());
+            
+        } catch (RuntimeException e) {
+            log.warn("행사 프로세스 비교 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("행사 프로세스 비교 중 오류 발생", e);
+            return RespDto.fail("행사 프로세스 비교 중 오류가 발생했습니다.");
+        }
+    }
+    
 }

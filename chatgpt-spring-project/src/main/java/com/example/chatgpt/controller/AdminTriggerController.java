@@ -67,4 +67,31 @@ public class AdminTriggerController {
             return ResponseEntity.ok(RespDto.fail("Stage1 처리 중 오류가 발생했습니다."));
         }
     }
+    
+    /**
+     * 관리자 트리거 API - stage_batch_process 변경
+     * PUT /api/v1/admin/event/stage-change?eventCode={eventCode}&stageStep={stageStep}
+     */
+    @PutMapping("/api/v1/admin/event/stage-change")
+    public ResponseEntity<RespDto<String>> updateStageBatchProcess(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("stageStep") Integer stageStep) {
+        
+        try {
+            log.info("stage_batch_process 변경 요청 - eventCode: {}, stageStep: {}", eventCode, stageStep);
+            
+            String result = adminTriggerService.updateStageBatchProcess(eventCode, stageStep);
+            
+            return ResponseEntity.ok(RespDto.success("스테이지 변경 완료", result));
+            
+        } catch (RuntimeException e) {
+            log.warn("스테이지 변경 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("스테이지 변경 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("스테이지 변경 중 오류가 발생했습니다."));
+        }
+    }
+    
 }
