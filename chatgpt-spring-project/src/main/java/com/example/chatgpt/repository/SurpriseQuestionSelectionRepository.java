@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -22,4 +23,10 @@ public interface SurpriseQuestionSelectionRepository extends JpaRepository<Surpr
      */
     @Query("SELECT sqs FROM SurpriseQuestionSelection sqs WHERE sqs.teamCode = :teamCode ORDER BY sqs.createdAt DESC")
     Optional<SurpriseQuestionSelection> findLatestByTeamCode(@Param("teamCode") Integer teamCode);
+    
+    /**
+     * 특정 행사-팀의 모든 객관식 돌발질문 답변 목록 조회
+     */
+    @Query("SELECT sqs FROM SurpriseQuestionSelection sqs WHERE sqs.eventCode = :eventCode AND sqs.teamCode = :teamCode ORDER BY sqs.createdAt DESC")
+    List<SurpriseQuestionSelection> findByEventCodeAndTeamCode(@Param("eventCode") Integer eventCode, @Param("teamCode") Integer teamCode);
 }

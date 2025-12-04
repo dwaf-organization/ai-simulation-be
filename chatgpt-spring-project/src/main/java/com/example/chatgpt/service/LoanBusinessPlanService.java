@@ -2,6 +2,8 @@ package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.loanbusinessplan.reqDto.LoanBusinessPlanCreateReqDto;
 import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanAmountViewRespDto;
+import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanDto;
+import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanListRespDto;
 import com.example.chatgpt.entity.LoanBusinessPlan;
 import com.example.chatgpt.entity.Stage1Bizplan;
 import com.example.chatgpt.repository.LoanBusinessPlanRepository;
@@ -11,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -22,6 +25,40 @@ public class LoanBusinessPlanService {
     private final LoanBusinessPlanRepository loanBusinessPlanRepository;
     private final Stage1BizplanRepository stage1BizplanRepository;
     private final BusinessPlanAnalyzer businessPlanAnalyzer; // ChatGPT API 호출
+    
+    /**
+     * 대출 사업계획서 목록 조회
+     */
+    public LoanBusinessPlanListRespDto getLoanBusinessPlanList(Integer eventCode, Integer teamCode, Integer stageStep) {
+        try {
+            log.info("대출 사업계획서 목록 조회 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                     eventCode, teamCode, stageStep);
+            
+            // 1. 대출 사업계획서 조회
+            Optional<LoanBusinessPlan> optionalPlan = loanBusinessPlanRepository
+                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
+            
+            if (optionalPlan.isEmpty()) {
+                log.info("대출 사업계획서가 없음 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                         eventCode, teamCode, stageStep);
+                return LoanBusinessPlanListRespDto.empty();
+            }
+            
+            LoanBusinessPlan plan = optionalPlan.get();
+            
+            // 2. DTO 변환
+            LoanBusinessPlanDto planDto = LoanBusinessPlanDto.from(plan);
+            
+            log.info("대출 사업계획서 조회 완료 - loanBizCode: {}, 제품명: {}", 
+                     plan.getLoanBizCode(), plan.getProductOrServiceName());
+            
+            return LoanBusinessPlanListRespDto.from(List.of(planDto));
+            
+        } catch (Exception e) {
+            log.error("대출 사업계획서 목록 조회 실패", e);
+            throw new RuntimeException("대출 사업계획서 조회 실패: " + e.getMessage());
+        }
+    }
     
     /**
      * 대출산정금액 조회

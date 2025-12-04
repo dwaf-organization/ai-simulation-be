@@ -1,7 +1,9 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.team.reqDto.TeamCreateReqDto;
+import com.example.chatgpt.dto.team.reqDto.TeamUpdateReqDto;
 import com.example.chatgpt.entity.Event;
+import com.example.chatgpt.entity.TeamDtl;
 import com.example.chatgpt.entity.TeamMst;
 import com.example.chatgpt.entity.CompanyCapabilityScore;
 import com.example.chatgpt.repository.EventRepository;
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -230,6 +234,72 @@ public class TeamService {
         } catch (Exception e) {
             log.error("팀 로그인 실패 - teamId: {}", teamId, e);
             throw new RuntimeException("팀 로그인 실패: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 팀 정보 수정 (TeamMst 수정 + TeamDtl 재생성)
+     */
+    @Transactional
+    public TeamMst updateTeam(TeamUpdateReqDto request) {
+        try {
+            log.info("팀 정보 수정 요청 - eventCode: {}, teamCode: {}, teamName: {}", 
+                     request.getEventCode(), request.getTeamCode(), request.getTeamName());
+            
+            // 1. 팀 존재 여부 확인
+            Optional<TeamMst> optionalTeam = teamMstRepository.findById(request.getTeamCode());
+            if (optionalTeam.isEmpty()) {
+                throw new RuntimeException("존재하지 않는 팀입니다.");
+            }
+            
+            TeamMst team = optionalTeam.get();
+            
+            // 2. 이벤트 코드 일치 확인
+            if (!team.getEventCode().equals(request.getEventCode())) {
+                throw new RuntimeException("팀이 해당 이벤트에 속하지 않습니다.");
+            }
+            
+            // 3. TeamMst 정보 수정
+            team.setTeamName(request.getTeamName());
+            team.setTeamLeaderName(request.getTeamLeaderName());
+            team.setTeamImageUrl(request.getTeamImageUrl());
+            
+            TeamMst updatedTeam = teamMstRepository.save(team);
+            
+            // 4. 기존 TeamDtl 전체 삭제
+            Integer deletedMembers = teamDtlRepository.deleteByTeamCode(request.getTeamCode());
+            log.info("기존 팀원 삭제 완료 - teamCode: {}, 삭제된 팀원 수: {}", request.getTeamCode(), deletedMembers);
+            
+            // 5. 새로운 TeamDtl 생성 (members 배열이 있는 경우)
+            if (request.getMembers() != null && !request.getMembers().isEmpty()) {
+                List<TeamDtl> newMembers = new ArrayList<>();
+                
+                for (String memberName : request.getMembers()) {
+                    if (memberName != null && !memberName.trim().isEmpty()) {
+                        TeamDtl teamDtl = TeamDtl.builder()
+                            .teamCode(request.getTeamCode())
+                            .teamMemberName(memberName.trim())
+                            .build();
+                        newMembers.add(teamDtl);
+                    }
+                }
+                
+                if (!newMembers.isEmpty()) {
+                    teamDtlRepository.saveAll(newMembers);
+                    log.info("새 팀원 추가 완료 - teamCode: {}, 추가된 팀원 수: {}", request.getTeamCode(), newMembers.size());
+                }
+            }
+            
+            log.info("팀 정보 수정 완료 - teamCode: {}, teamName: {}", updatedTeam.getTeamCode(), updatedTeam.getTeamName());
+            return updatedTeam;
+            
+        } catch (RuntimeException e) {
+            log.error("팀 정보 수정 실패: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("팀 정보 수정 중 시스템 오류", e);
+            throw new RuntimeException("팀 정보 수정 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
     

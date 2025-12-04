@@ -4,11 +4,18 @@ import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.dto.stage6bizplan.reqDto.Stage6BizPlanGlobalizeReqDto;
 import com.example.chatgpt.dto.stage6bizplan.reqDto.Stage6CountryBizPlanReqDto;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizPlanParseRespDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanGlobalizeDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanGlobalizeListRespDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanListRespDto;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6CountryBizPlanRespDto;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6CountryBizPlanViewRespDto;
 import com.example.chatgpt.service.Stage6BizPlanService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +27,66 @@ import org.springframework.web.multipart.MultipartFile;
 public class Stage6BizPlanController {
     
     private final Stage6BizPlanService stage6BizPlanService;
+    
+    /**
+     * Stage6 사업계획서 목록 조회 API
+     * GET /api/v1/stage6/bizplan/list?eventCode=1&teamCode=5
+     */
+    @GetMapping("/api/v1/stage6/bizplan/list")
+    public ResponseEntity<RespDto<List<Stage6BizplanDto>>> getBizplanList(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("Stage6 사업계획서 목록 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            Stage6BizplanListRespDto result = stage6BizPlanService.getBizplanList(eventCode, teamCode);
+            
+            if (result.getBizplans().isEmpty()) {
+                return ResponseEntity.ok(RespDto.success("Stage6 사업계획서가 없습니다.", result.getBizplans()));
+            } else {
+                return ResponseEntity.ok(RespDto.success("Stage6 사업계획서 조회 성공", result.getBizplans()));
+            }
+            
+        } catch (RuntimeException e) {
+            log.warn("Stage6 사업계획서 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("Stage6 사업계획서 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("Stage6 사업계획서 조회 중 오류가 발생했습니다."));
+        }
+    }
+    
+    /**
+     * Stage6 글로벌 사업계획서 목록 조회 API
+     * GET /api/v1/stage6/bizplan/globalize/list?eventCode=1&teamCode=5
+     */
+    @GetMapping("/api/v1/stage6/bizplan/globalize/list")
+    public ResponseEntity<RespDto<List<Stage6BizplanGlobalizeDto>>> getGlobalizeBizplanList(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("Stage6 글로벌 사업계획서 목록 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            Stage6BizplanGlobalizeListRespDto result = stage6BizPlanService.getGlobalizeBizplanList(eventCode, teamCode);
+            
+            if (result.getGlobalBizplans().isEmpty()) {
+                return ResponseEntity.ok(RespDto.success("Stage6 글로벌 사업계획서가 없습니다.", result.getGlobalBizplans()));
+            } else {
+                return ResponseEntity.ok(RespDto.success("Stage6 글로벌 사업계획서 조회 성공", result.getGlobalBizplans()));
+            }
+            
+        } catch (RuntimeException e) {
+            log.warn("Stage6 글로벌 사업계획서 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("Stage6 글로벌 사업계획서 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("Stage6 글로벌 사업계획서 조회 중 오류가 발생했습니다."));
+        }
+    }
     
     /**
      * 1단계: Stage6 사업계획서 업로드 및 DB 저장 API

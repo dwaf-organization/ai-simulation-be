@@ -3,9 +3,14 @@ package com.example.chatgpt.controller;
 import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.dto.loanbusinessplan.reqDto.LoanBusinessPlanCreateReqDto;
 import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanAmountViewRespDto;
+import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanDto;
+import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanListRespDto;
 import com.example.chatgpt.service.LoanBusinessPlanService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.List;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +21,38 @@ import org.springframework.web.bind.annotation.*;
 public class LoanBusinessPlanController {
     
     private final LoanBusinessPlanService loanBusinessPlanService;
+    
+    /**
+     * 대출 사업계획서 목록 조회 API
+     * GET /api/v1/loan-business-plan/list?eventCode=1&teamCode=5&stageStep=6
+     */
+    @GetMapping("/api/v1/loan-business-plan/list")
+    public ResponseEntity<RespDto<List<LoanBusinessPlanDto>>> getLoanBusinessPlanList(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode,
+            @RequestParam("stageStep") Integer stageStep) {
+        
+        try {
+            log.info("대출 사업계획서 목록 조회 요청 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                     eventCode, teamCode, stageStep);
+            
+            LoanBusinessPlanListRespDto result = loanBusinessPlanService.getLoanBusinessPlanList(eventCode, teamCode, stageStep);
+            
+            if (result.getLoanBusinessPlans().isEmpty()) {
+                return ResponseEntity.ok(RespDto.success("대출 사업계획서가 없습니다.", result.getLoanBusinessPlans()));
+            } else {
+                return ResponseEntity.ok(RespDto.success("대출 사업계획서 조회 성공", result.getLoanBusinessPlans()));
+            }
+            
+        } catch (RuntimeException e) {
+            log.warn("대출 사업계획서 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("대출 사업계획서 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("대출 사업계획서 조회 중 오류가 발생했습니다."));
+        }
+    }
     
     /**
      * 대출산정금액 조회 API

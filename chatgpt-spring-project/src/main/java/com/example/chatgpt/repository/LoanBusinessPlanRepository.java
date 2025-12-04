@@ -27,4 +27,9 @@ public interface LoanBusinessPlanRepository extends JpaRepository<LoanBusinessPl
      */
     boolean existsByEventCodeAndTeamCodeAndStageStep(
         Integer eventCode, Integer teamCode, Integer stageStep);
+    
+    /**
+     * 특정 이벤트의 모든 대출 사업계획서 조회
+     */
+    List<LoanBusinessPlan> findByEventCodeOrderByCreatedAtDesc(Integer eventCode);
 }

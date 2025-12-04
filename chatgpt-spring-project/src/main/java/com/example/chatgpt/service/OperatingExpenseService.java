@@ -46,6 +46,7 @@ public class OperatingExpenseService {
             Map<String, Object> expenseData = new HashMap<>();
             expenseData.put("expenseCode", expense.getExpenseCode());
             expenseData.put("llmResponse", expense.getLlmResponse());
+            expenseData.put("expenseAmount", expense.getExpenseAmount());
             
             result.add(expenseData);
         }

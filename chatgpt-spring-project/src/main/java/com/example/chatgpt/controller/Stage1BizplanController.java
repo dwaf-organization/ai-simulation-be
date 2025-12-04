@@ -1,12 +1,15 @@
 package com.example.chatgpt.controller;
 
 import com.example.chatgpt.common.dto.RespDto;
+import com.example.chatgpt.dto.stage1bizplan.respDto.Stage1BizplanViewDto;
 import com.example.chatgpt.entity.Stage1Bizplan;
 import com.example.chatgpt.service.Stage1BizplanService;
 import com.example.chatgpt.service.EventService;
 import com.example.chatgpt.service.TeamService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -20,6 +23,36 @@ public class Stage1BizplanController {
     private final Stage1BizplanService stage1BizplanService;
     private final EventService eventService;
     private final TeamService teamService;
+    
+    /**
+     * Stage1 사업계획서 조회 API
+     * GET /api/v1/stage1/bizplan/list?eventCode=1&teamCode=5
+     */
+    @GetMapping("/stage1/bizplan/list")
+    public ResponseEntity<RespDto<Stage1BizplanViewDto>> getStage1Bizplan(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("Stage1 사업계획서 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            Stage1BizplanViewDto result = stage1BizplanService.getStage1Bizplan(eventCode, teamCode);
+            
+            if (result == null) {
+                return ResponseEntity.ok(RespDto.success("Stage1 사업계획서가 없습니다.", null));
+            } else {
+                return ResponseEntity.ok(RespDto.success("Stage1 사업계획서 조회 성공", result));
+            }
+            
+        } catch (RuntimeException e) {
+            log.warn("Stage1 사업계획서 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("Stage1 사업계획서 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("Stage1 사업계획서 조회 중 오류가 발생했습니다."));
+        }
+    }
     
     /**
      * 사업계획서 업로드 API

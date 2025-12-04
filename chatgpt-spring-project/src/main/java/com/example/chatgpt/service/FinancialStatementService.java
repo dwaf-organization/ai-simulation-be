@@ -1,7 +1,9 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.entity.FinancialStatement;
+import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementDto;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementViewRespDto;
+import com.example.chatgpt.dto.financialstatement.respDto.TeamFinancialStatementAllRespDto;
 import com.example.chatgpt.repository.FinancialStatementRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -11,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -402,5 +405,49 @@ public class FinancialStatementService {
      */
     public Optional<FinancialStatement> getFinancialStatement(Integer teamCode, Integer stageStep) {
         return financialStatementRepository.findByTeamCodeAndStageStep(teamCode, stageStep);
+    }
+    
+    /**
+     * 팀별 모든 스테이지 재무제표 조회 (Stage2~7)
+     */
+    public TeamFinancialStatementAllRespDto getTeamFinancialStatementsAll(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("팀별 모든 스테이지 재무제표 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 1. 팀의 모든 재무제표 조회
+            List<FinancialStatement> allStatements = financialStatementRepository.findByTeamCodeOrderByStageStep(teamCode);
+            
+            // 2. 스테이지별로 그룹화 (Stage2~7만)
+            Map<Integer, FinancialStatementDto> stageMap = allStatements.stream()
+                .filter(fs -> fs.getStageStep() != null && fs.getStageStep() >= 2 && fs.getStageStep() <= 7)
+                .filter(fs -> fs.getEventCode().equals(eventCode))  // 이벤트 코드 확인
+                .collect(Collectors.toMap(
+                    FinancialStatement::getStageStep,
+                    FinancialStatementDto::from
+                ));
+            
+            // 3. 응답 DTO 구성 (없는 스테이지는 null)
+            TeamFinancialStatementAllRespDto result = TeamFinancialStatementAllRespDto.builder()
+                .eventCode(eventCode)
+                .teamCode(teamCode)
+                .stage2(stageMap.get(2))
+                .stage3(stageMap.get(3))
+                .stage4(stageMap.get(4))
+                .stage5(stageMap.get(5))
+                .stage6(stageMap.get(6))
+                .stage7(stageMap.get(7))
+                .build();
+            
+            // 4. 조회된 스테이지 개수 로깅
+            long foundStages = stageMap.size();
+            log.info("팀별 재무제표 조회 완료 - eventCode: {}, teamCode: {}, 조회된 스테이지 수: {}개", 
+                     eventCode, teamCode, foundStages);
+            
+            return result;
+            
+        } catch (Exception e) {
+            log.error("팀별 모든 스테이지 재무제표 조회 실패 - eventCode: {}, teamCode: {}", eventCode, teamCode, e);
+            throw new RuntimeException("팀별 재무제표 조회 실패: " + e.getMessage());
+        }
     }
 }

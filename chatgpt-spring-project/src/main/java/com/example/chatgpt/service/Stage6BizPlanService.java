@@ -1,6 +1,10 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizPlanParseRespDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanGlobalizeDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanGlobalizeListRespDto;
+import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6BizplanListRespDto;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6CountryBizPlanRespDto;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6CountryBizPlanRespDto.CountryGenerationResult;
 import com.example.chatgpt.dto.stage6bizplan.respDto.Stage6CountryBizPlanViewRespDto;
@@ -17,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -33,6 +38,70 @@ public class Stage6BizPlanService {
     private final GlobalBusinessPlanService globalBusinessPlanService; // 국가별 사업계획서 생성
     
     private static final int MAX_TEXT_LENGTH = 60000; // 60,000자 제한
+    
+    /**
+     * 일반 사업계획서 목록 조회
+     */
+    public Stage6BizplanListRespDto getBizplanList(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("Stage6 사업계획서 목록 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 1. Stage6 사업계획서 요약 조회
+            Optional<Stage6BizplanSummary> optionalSummary = stage6BizplanSummaryRepository
+                .findByEventCodeAndTeamCode(eventCode, teamCode);
+            
+            if (optionalSummary.isEmpty()) {
+                log.info("Stage6 사업계획서가 없음 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+                return Stage6BizplanListRespDto.empty();
+            }
+            
+            Stage6BizplanSummary summary = optionalSummary.get();
+            
+            // 2. DTO 변환 (일반 사업계획서 필드만)
+            Stage6BizplanDto bizplanDto = Stage6BizplanDto.from(summary);
+            
+            log.info("Stage6 사업계획서 조회 완료 - stage6Code: {}, 파일 경로: {}", 
+                     summary.getStage6Code(), summary.getBizplanFilePath());
+            
+            return Stage6BizplanListRespDto.from(List.of(bizplanDto));
+            
+        } catch (Exception e) {
+            log.error("Stage6 사업계획서 목록 조회 실패", e);
+            throw new RuntimeException("Stage6 사업계획서 조회 실패: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 글로벌 사업계획서 목록 조회
+     */
+    public Stage6BizplanGlobalizeListRespDto getGlobalizeBizplanList(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("Stage6 글로벌 사업계획서 목록 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 1. Stage6 사업계획서 요약 조회
+            Optional<Stage6BizplanSummary> optionalSummary = stage6BizplanSummaryRepository
+                .findByEventCodeAndTeamCode(eventCode, teamCode);
+            
+            if (optionalSummary.isEmpty()) {
+                log.info("Stage6 글로벌 사업계획서가 없음 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+                return Stage6BizplanGlobalizeListRespDto.empty();
+            }
+            
+            Stage6BizplanSummary summary = optionalSummary.get();
+            
+            // 2. DTO 변환 (글로벌 사업계획서 필드만)
+            Stage6BizplanGlobalizeDto globalizeDto = Stage6BizplanGlobalizeDto.from(summary);
+            
+            log.info("Stage6 글로벌 사업계획서 조회 완료 - stage6Code: {}, 글로벌 파일 경로: {}", 
+                     summary.getStage6Code(), summary.getGlobalBizplanFilePath());
+            
+            return Stage6BizplanGlobalizeListRespDto.from(List.of(globalizeDto));
+            
+        } catch (Exception e) {
+            log.error("Stage6 글로벌 사업계획서 목록 조회 실패", e);
+            throw new RuntimeException("Stage6 글로벌 사업계획서 조회 실패: " + e.getMessage());
+        }
+    }
     
     /**
      * 1단계: 사업계획서 파일 파싱 및 DB 저장

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface BankRepository extends JpaRepository<Bank, Integer> {
@@ -20,4 +21,15 @@ public interface BankRepository extends JpaRepository<Bank, Integer> {
      */
     @Query("SELECT b.bankCode, b.bankName FROM Bank b ORDER BY b.bankCode ASC")
     List<Object[]> findBankCodeAndNameOnly();
+    
+    /**
+     * 은행 코드로 은행 정보 조회
+     */
+    Optional<Bank> findByBankCode(Integer bankCode);
+    
+    /**
+     * 은행명으로 은행 정보 조회
+     */
+    Optional<Bank> findByBankName(String bankName);
+    
 }

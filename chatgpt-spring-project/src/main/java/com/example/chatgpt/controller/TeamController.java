@@ -4,6 +4,7 @@ import com.example.chatgpt.common.dto.PaginationDto;
 import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.dto.team.reqDto.TeamCreateReqDto;
 import com.example.chatgpt.dto.team.reqDto.TeamLoginReqDto;
+import com.example.chatgpt.dto.team.reqDto.TeamUpdateReqDto;
 import com.example.chatgpt.dto.team.respDto.TeamCreateRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamDeleteRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamListRespDto;
@@ -159,6 +160,35 @@ public class TeamController {
         } catch (Exception e) {
             log.error("팀 로그인 실패", e);
             return RespDto.fail("로그인 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 팀 정보 수정 API
+     * PUT /api/v1/teams/update
+     */
+    @PutMapping("/teams/update")
+    public RespDto<Integer> updateTeam(@Valid @RequestBody TeamUpdateReqDto request) {
+        
+        try {
+            log.info("팀 정보 수정 요청 - eventCode: {}, teamCode: {}, teamName: {}, 팀원 수: {}", 
+                     request.getEventCode(), request.getTeamCode(), request.getTeamName(),
+                     request.getMembers() != null ? request.getMembers().size() : 0);
+            
+            TeamMst updatedTeam = teamService.updateTeam(request);
+            
+            log.info("팀 정보 수정 완료 - teamCode: {}, teamName: {}", 
+                     updatedTeam.getTeamCode(), updatedTeam.getTeamName());
+            
+            return RespDto.success("팀 정보가 성공적으로 수정되었습니다.", updatedTeam.getTeamCode());
+            
+        } catch (RuntimeException e) {
+            log.warn("팀 정보 수정 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("팀 정보 수정 실패", e);
+            return RespDto.fail("팀 정보 수정 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
     

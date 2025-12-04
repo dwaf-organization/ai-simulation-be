@@ -2,6 +2,7 @@ package com.example.chatgpt.controller;
 
 import com.example.chatgpt.entity.FinancialStatement;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementViewRespDto;
+import com.example.chatgpt.dto.financialstatement.respDto.TeamFinancialStatementAllRespDto;
 import com.example.chatgpt.common.dto.RespDto;
 import com.example.chatgpt.service.FinancialStatementService;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,45 @@ import java.util.Map;
 public class FinancialStatementController {
     
     private final FinancialStatementService financialStatementService;
+    
+    /**
+     * 팀별 모든 스테이지 재무제표 조회 API
+     * GET /api/v1/team/financial-statements/all?eventCode=1&teamCode=5
+     */
+    @GetMapping("/all")
+    public ResponseEntity<RespDto<TeamFinancialStatementAllRespDto>> getTeamFinancialStatementsAll(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("팀별 모든 스테이지 재무제표 조회 API 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            TeamFinancialStatementAllRespDto result = financialStatementService.getTeamFinancialStatementsAll(eventCode, teamCode);
+            
+            // 조회된 스테이지 개수 계산
+            int foundStagesCount = 0;
+            if (result.getStage2() != null) foundStagesCount++;
+            if (result.getStage3() != null) foundStagesCount++;
+            if (result.getStage4() != null) foundStagesCount++;
+            if (result.getStage5() != null) foundStagesCount++;
+            if (result.getStage6() != null) foundStagesCount++;
+            if (result.getStage7() != null) foundStagesCount++;
+            
+            String message = foundStagesCount > 0 ? 
+                "팀별 재무제표 조회 성공 (" + foundStagesCount + "개 스테이지)" : 
+                "재무제표 데이터가 없습니다.";
+            
+            return ResponseEntity.ok(RespDto.success(message, result));
+            
+        } catch (RuntimeException e) {
+            log.warn("팀별 재무제표 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("팀별 재무제표 조회 중 예상치 못한 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("팀별 재무제표 조회 중 오류가 발생했습니다."));
+        }
+    }
     
     /**
      * 재무제표 조회 API - 새로 추가

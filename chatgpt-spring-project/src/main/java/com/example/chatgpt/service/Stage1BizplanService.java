@@ -1,5 +1,6 @@
 package com.example.chatgpt.service;
 
+import com.example.chatgpt.dto.stage1bizplan.respDto.Stage1BizplanViewDto;
 import com.example.chatgpt.entity.Event;
 import com.example.chatgpt.entity.Stage1Bizplan;
 import com.example.chatgpt.entity.TeamMst;
@@ -26,6 +27,40 @@ public class Stage1BizplanService {
     private final FileProcessingService fileProcessingService;
     
     private static final int MAX_TEXT_LENGTH = 50000; // 50,000자 제한
+    
+    /**
+     * Stage1 사업계획서 조회
+     */
+    public Stage1BizplanViewDto getStage1Bizplan(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("Stage1 사업계획서 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // Stage1 사업계획서 조회
+            Optional<Stage1Bizplan> optionalBizplan = stage1BizplanRepository
+                .findByEventCodeAndTeamCode(eventCode, teamCode);
+            
+            if (optionalBizplan.isEmpty()) {
+                log.info("Stage1 사업계획서가 없음 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+                return null;
+            }
+            
+            Stage1Bizplan bizplan = optionalBizplan.get();
+            
+            // DTO 변환
+            Stage1BizplanViewDto result = Stage1BizplanViewDto.from(bizplan);
+            
+            log.info("Stage1 사업계획서 조회 완료 - stage1Code: {}, 파일 경로: {}, 내용 길이: {}자", 
+                     bizplan.getStage1Code(), 
+                     bizplan.getBizplanFilePath(),
+                     bizplan.getBizplanContent() != null ? bizplan.getBizplanContent().length() : 0);
+            
+            return result;
+            
+        } catch (Exception e) {
+            log.error("Stage1 사업계획서 조회 실패", e);
+            throw new RuntimeException("Stage1 사업계획서 조회 실패: " + e.getMessage());
+        }
+    }
     
     /**
      * 사업계획서 업로드 및 DB 저장

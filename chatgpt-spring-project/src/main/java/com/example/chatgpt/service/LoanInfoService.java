@@ -1,13 +1,18 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.loaninfo.reqDto.LoanInfoCreateReqDto;
+import com.example.chatgpt.dto.loaninfo.respDto.LoanInfoDto;
+import com.example.chatgpt.dto.loaninfo.respDto.LoanInfoListRespDto;
+import com.example.chatgpt.entity.Bank;
 import com.example.chatgpt.entity.LoanInfo;
+import com.example.chatgpt.repository.BankRepository;
 import com.example.chatgpt.repository.LoanInfoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -17,6 +22,57 @@ import java.util.Optional;
 public class LoanInfoService {
     
     private final LoanInfoRepository loanInfoRepository;
+    private final BankRepository bankRepository;
+    
+    /**
+     * 대출정보 목록 조회 (은행명 포함)
+     */
+    public LoanInfoListRespDto getLoanInfoList(Integer eventCode, Integer teamCode, Integer stageStep) {
+        try {
+            log.info("대출정보 목록 조회 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                     eventCode, teamCode, stageStep);
+            
+            // 1. 대출정보 조회
+            Optional<LoanInfo> optionalLoanInfo = loanInfoRepository
+                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
+            
+            if (optionalLoanInfo.isEmpty()) {
+                log.info("대출정보가 없음 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                         eventCode, teamCode, stageStep);
+                return LoanInfoListRespDto.empty();
+            }
+            
+            LoanInfo loanInfo = optionalLoanInfo.get();
+            
+            // 2. 은행 정보 조회
+            String bankName = getBankName(loanInfo.getBankCode());
+            
+            // 3. DTO 변환
+            LoanInfoDto loanInfoDto = LoanInfoDto.from(loanInfo, bankName);
+            
+            log.info("대출정보 조회 완료 - loanCode: {}, bank: {}", 
+                     loanInfo.getLoanCode(), bankName);
+            
+            return LoanInfoListRespDto.from(List.of(loanInfoDto));
+            
+        } catch (Exception e) {
+            log.error("대출정보 목록 조회 실패", e);
+            throw new RuntimeException("대출정보 조회 실패: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 은행 코드로 은행명 조회
+     */
+    private String getBankName(Integer bankCode) {
+        try {
+            Optional<Bank> bankOpt = bankRepository.findByBankCode(bankCode);
+            return bankOpt.map(Bank::getBankName).orElse("알 수 없는 은행");
+        } catch (Exception e) {
+            log.warn("은행 정보 조회 실패 - bankCode: {}", bankCode, e);
+            return "알 수 없는 은행";
+        }
+    }
     
     /**
      * 대출정보 생성 또는 업데이트 (중복시 덮어쓰기)

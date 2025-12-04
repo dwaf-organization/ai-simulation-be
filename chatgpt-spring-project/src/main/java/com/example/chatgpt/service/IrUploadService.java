@@ -1,5 +1,7 @@
 package com.example.chatgpt.service;
 
+import com.example.chatgpt.dto.irupload.respDto.IrUploadDto;
+import com.example.chatgpt.dto.irupload.respDto.IrUploadListRespDto;
 import com.example.chatgpt.entity.Event;
 import com.example.chatgpt.entity.IrUpload;
 import com.example.chatgpt.entity.TeamMst;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -171,6 +174,38 @@ public class IrUploadService {
         } catch (Exception e) {
             log.error("IR 자료 존재 여부 확인 실패 - eventCode: {}, teamCode: {}", eventCode, teamCode, e);
             return false;
+        }
+    }
+
+    /**
+     * IR 자료 목록 조회 (날짜 제외)
+     */
+    public IrUploadListRespDto getIrUploadList(Integer eventCode, Integer teamCode) {
+        try {
+            log.info("IR 자료 목록 조회 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            // 1. IR 자료 조회
+            Optional<IrUpload> optionalIr = irUploadRepository.findByEventCodeAndTeamCode(eventCode, teamCode);
+            
+            if (optionalIr.isEmpty()) {
+                log.info("IR 자료가 없음 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+                return IrUploadListRespDto.empty();
+            }
+            
+            IrUpload irUpload = optionalIr.get();
+            
+            // 2. DTO 변환 (날짜 제외)
+            IrUploadDto irUploadDto = IrUploadDto.from(irUpload);
+            
+            log.info("IR 자료 조회 완료 - irCode: {}, 워드 내용 길이: {}자", 
+                     irUpload.getIrCode(), 
+                     irUpload.getIrWordContents() != null ? irUpload.getIrWordContents().length() : 0);
+            
+            return IrUploadListRespDto.from(List.of(irUploadDto));
+            
+        } catch (Exception e) {
+            log.error("IR 자료 목록 조회 실패", e);
+            throw new RuntimeException("IR 자료 조회 실패: " + e.getMessage());
         }
     }
 }

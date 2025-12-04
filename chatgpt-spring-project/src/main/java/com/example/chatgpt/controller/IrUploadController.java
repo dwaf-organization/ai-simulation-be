@@ -1,6 +1,8 @@
 package com.example.chatgpt.controller;
 
 import com.example.chatgpt.common.dto.RespDto;
+import com.example.chatgpt.dto.irupload.respDto.IrUploadDto;
+import com.example.chatgpt.dto.irupload.respDto.IrUploadListRespDto;
 import com.example.chatgpt.entity.IrUpload;
 import com.example.chatgpt.service.IrUploadService;
 import lombok.RequiredArgsConstructor;
@@ -8,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -101,6 +105,36 @@ public class IrUploadController {
         } catch (Exception e) {
             log.error("IR 자료 존재 여부 확인 중 오류 발생", e);
             return ResponseEntity.ok(RespDto.fail("IR 자료 존재 여부 확인 중 오류가 발생했습니다."));
+        }
+    }
+    
+    /**
+     * IR 자료 목록 조회 API (날짜 제외)
+     * GET /api/v1/ir-upload/list?eventCode=1&teamCode=5
+     */
+    @GetMapping("/api/v1/ir-upload/list")
+    public ResponseEntity<RespDto<List<IrUploadDto>>> getIrUploadList(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("IR 자료 목록 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            IrUploadListRespDto result = irUploadService.getIrUploadList(eventCode, teamCode);
+            
+            if (result.getIrUploads().isEmpty()) {
+                return ResponseEntity.ok(RespDto.success("IR 자료가 없습니다.", result.getIrUploads()));
+            } else {
+                return ResponseEntity.ok(RespDto.success("IR 자료 조회 성공", result.getIrUploads()));
+            }
+            
+        } catch (RuntimeException e) {
+            log.warn("IR 자료 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("IR 자료 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("IR 자료 조회 중 오류가 발생했습니다."));
         }
     }
 }
