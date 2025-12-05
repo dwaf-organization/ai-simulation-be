@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class StageRankingRespDto {
     
     private Integer teamCode;
+    private String teamName;
     private Integer allocatedRevenue;
     private Integer stageRank;
     private Integer fsScore;
@@ -23,6 +24,7 @@ public class StageRankingRespDto {
     public static StageRankingRespDto createDefault(Integer teamCode) {
         return StageRankingRespDto.builder()
                 .teamCode(teamCode)
+                .teamName(null)
                 .allocatedRevenue(null)
                 .stageRank(null)
                 .fsScore(null)

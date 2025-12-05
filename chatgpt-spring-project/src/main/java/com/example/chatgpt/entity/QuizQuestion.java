@@ -38,8 +38,8 @@ public class QuizQuestion {
     @Column(name = "hint_text", length = 250, nullable = false)
     private String hintText;
     
-    @Column(name = "answer", nullable = false)
-    private Integer answer;
+    @Column(name = "answer", length = 10, nullable = false)
+    private String answer;
     
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

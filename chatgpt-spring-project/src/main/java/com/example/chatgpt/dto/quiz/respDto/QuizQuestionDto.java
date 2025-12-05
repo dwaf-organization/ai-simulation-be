@@ -19,7 +19,7 @@ public class QuizQuestionDto {
     private String option3;             // 선택지 3
     private String option4;             // 선택지 4
     private String hintText;            // 힌트
-    private Integer answer;             // 정답 (1,2,3,4)
+    private String answer;             // 정답 (1,2,3,4)
     
     /**
      * Entity를 DTO로 변환 (날짜 필드 제외)

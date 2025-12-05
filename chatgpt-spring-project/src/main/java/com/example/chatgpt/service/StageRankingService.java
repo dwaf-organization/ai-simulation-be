@@ -46,17 +46,20 @@ public class StageRankingService {
     }
     
     /**
-     * 3개 테이블 조인 쿼리 생성
+     * 4개 테이블 조인 쿼리 생성 (team_mst 추가)
      */
     private String buildRankingQuery() {
         return """
             SELECT 
                 tra.team_code,
+                tm.team_name,
                 tra.allocated_revenue,
                 tra.stage_rank,
                 fs.fs_score,
                 ccs.total_capability_level
             FROM team_revenue_allocation tra
+            LEFT JOIN team_mst tm
+                ON tra.team_code = tm.team_code
             LEFT JOIN financial_statement fs 
                 ON tra.event_code = fs.event_code 
                 AND tra.team_code = fs.team_code 
@@ -76,6 +79,7 @@ public class StageRankingService {
     private StageRankingRespDto mapToDto(Map<String, Object> row) {
         return StageRankingRespDto.builder()
                 .teamCode(convertToInteger(row.get("team_code")))
+                .teamName(convertToString(row.get("team_name")))
                 .allocatedRevenue(convertToInteger(row.get("allocated_revenue")))
                 .stageRank(convertToInteger(row.get("stage_rank")))
                 .fsScore(convertToInteger(row.get("fs_score")))
@@ -100,5 +104,15 @@ public class StageRankingService {
             return ((Number) value).intValue();
         }
         return null;
+    }
+    
+    /**
+     * Object를 String으로 안전하게 변환
+     */
+    private String convertToString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return value.toString();
     }
 }
