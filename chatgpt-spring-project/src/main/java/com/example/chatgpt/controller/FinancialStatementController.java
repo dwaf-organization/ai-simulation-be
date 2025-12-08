@@ -1,6 +1,7 @@
 package com.example.chatgpt.controller;
 
 import com.example.chatgpt.entity.FinancialStatement;
+import com.example.chatgpt.dto.financialstatement.respDto.AvailableAmountRespDto;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementViewRespDto;
 import com.example.chatgpt.dto.financialstatement.respDto.TeamFinancialStatementAllRespDto;
 import com.example.chatgpt.common.dto.RespDto;
@@ -86,6 +87,33 @@ public class FinancialStatementController {
         } catch (Exception e) {
             log.error("재무제표 조회 중 오류 발생", e);
             return ResponseEntity.ok(RespDto.fail("재무제표 조회 중 오류가 발생했습니다."));
+        }
+    }
+    
+    /**
+     * 사용 가능한 금액 조회 API (스테이지 2부터)
+     * GET /api/v1/financial-statement/available-amount/{eventCode}/{teamCode}/{stageStep}
+     */
+    @GetMapping("/v1/financial-statement/available-amount/{eventCode}/{teamCode}/{stageStep}")
+    public ResponseEntity<RespDto<AvailableAmountRespDto>> getAvailableAmount(
+            @PathVariable("eventCode") Integer eventCode,
+            @PathVariable("teamCode") Integer teamCode,
+            @PathVariable("stageStep") Integer stageStep) {
+        
+        try {
+            log.info("사용 가능한 금액 조회 요청 - eventCode: {}, teamCode: {}, stageStep: {}", eventCode, teamCode, stageStep);
+            
+            AvailableAmountRespDto result = financialStatementService.getAvailableAmount(eventCode, teamCode, stageStep);
+            
+            return ResponseEntity.ok(RespDto.success("사용 가능한 금액 조회 성공", result));
+            
+        } catch (RuntimeException e) {
+            log.warn("사용 가능한 금액 조회 실패: {}", e.getMessage());
+            return ResponseEntity.ok(RespDto.fail(e.getMessage()));
+            
+        } catch (Exception e) {
+            log.error("사용 가능한 금액 조회 중 오류 발생", e);
+            return ResponseEntity.ok(RespDto.fail("사용 가능한 금액 조회 중 오류가 발생했습니다."));
         }
     }
     

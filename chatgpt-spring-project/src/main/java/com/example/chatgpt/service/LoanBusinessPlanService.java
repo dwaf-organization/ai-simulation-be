@@ -6,8 +6,10 @@ import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanDto;
 import com.example.chatgpt.dto.loanbusinessplan.respDto.LoanBusinessPlanListRespDto;
 import com.example.chatgpt.entity.LoanBusinessPlan;
 import com.example.chatgpt.entity.Stage1Bizplan;
+import com.example.chatgpt.entity.FinancialStatement;
 import com.example.chatgpt.repository.LoanBusinessPlanRepository;
 import com.example.chatgpt.repository.Stage1BizplanRepository;
+import com.example.chatgpt.repository.FinancialStatementRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +27,7 @@ public class LoanBusinessPlanService {
     
     private final LoanBusinessPlanRepository loanBusinessPlanRepository;
     private final Stage1BizplanRepository stage1BizplanRepository;
+    private final FinancialStatementRepository financialStatementRepository;
     private final BusinessPlanAnalyzer businessPlanAnalyzer; // ChatGPT API 호출
     
     /**
@@ -130,10 +134,15 @@ public class LoanBusinessPlanService {
             savedPlan.setCalculatedLoanAmount(calculatedLoanAmount);
             loanBusinessPlanRepository.save(savedPlan);
             
+            // 8. ✅ 스테이지 3, 4인 경우 재무제표 생성
+            if (stageStep == 3 || stageStep == 4) {
+                createFinancialStatementForLoan(eventCode, teamCode, stageStep, calculatedLoanAmount);
+            }
+            
             log.info("대출 사업계획서 처리 완료 - loanBizCode: {}, 산정금액: {}만원", 
                      savedPlan.getLoanBizCode(), calculatedLoanAmount);
             
-            return calculatedLoanAmount;
+            return calculatedLoanAmount * 10000;
             
         } catch (NumberFormatException e) {
             log.error("숫자 변환 실패", e);
@@ -342,6 +351,74 @@ public class LoanBusinessPlanService {
             return Integer.valueOf(value.trim());
         } catch (NumberFormatException e) {
             return null;
+        }
+    }
+    
+    /**
+     * 대출 스테이지(3,4)용 재무제표 생성
+     * 대출금액을 accounts_payable에 저장하고 나머지는 0으로 초기화
+     */
+    private void createFinancialStatementForLoan(Integer eventCode, Integer teamCode, Integer stageStep, Integer loanAmount) {
+        try {
+            log.info("대출용 재무제표 생성 시작 - eventCode: {}, teamCode: {}, stageStep: {}, 대출금액: {}만원", 
+                     eventCode, teamCode, stageStep, loanAmount);
+            
+            // 1. 기존 재무제표 확인 (중복 방지)
+            Optional<FinancialStatement> existingFs = financialStatementRepository
+                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
+            
+            if (existingFs.isPresent()) {
+                // 기존 재무제표가 있으면 accounts_payable만 업데이트
+                FinancialStatement fs = existingFs.get();
+                fs.setAccountsPayable(loanAmount);
+                fs.setUpdatedAt(LocalDateTime.now());
+                financialStatementRepository.save(fs);
+                log.info("기존 재무제표 대출금액 업데이트 완료 - 대출금액: {}만원", loanAmount);
+                return;
+            }
+            
+            // 2. 새로운 재무제표 생성 (대출금액은 accounts_payable에, 나머지는 0)
+            FinancialStatement financialStatement = FinancialStatement.builder()
+                .eventCode(eventCode)
+                .teamCode(teamCode)
+                .stageStep(stageStep)
+                // 자산 항목들 - 모두 0
+                .cashAndDeposits(0)
+                .tangibleAssets(0)
+                .inventoryAssets(0)
+                .ppeAssets(0)
+                .intangibleAssets(0)
+                .totalAssets(0)
+                // 부채 항목들 - 대출금액을 accounts_payable에
+                .accountsPayable(loanAmount * 10000)
+                .borrowings(0)
+                .totalLiabilitiesEquity(0)
+                // 자본 항목들 - 모두 0
+                .capitalStock(0)
+                // 손익계산서 항목들 - 모두 0
+                .revenue(0)
+                .cogs(0)
+                .grossProfit(0)
+                .sgnaExpenses(0)
+                .rndExpenses(0)
+                .operatingIncome(0)
+                .nonOperatingIncome(0)
+                .corporateTax(0)
+                .netIncome(0)
+                .fsScore(0)
+                // 타임스탬프
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+            
+            // 3. 저장
+            financialStatementRepository.save(financialStatement);
+            
+            log.info("대출용 재무제표 생성 완료 - 대출금액: {}만원", loanAmount);
+            
+        } catch (Exception e) {
+            log.error("대출용 재무제표 생성 실패", e);
+            // 재무제표 생성 실패해도 대출 사업계획서 저장은 유지 (에러 전파 안함)
         }
     }
 }

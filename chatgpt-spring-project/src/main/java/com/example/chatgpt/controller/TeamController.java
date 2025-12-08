@@ -9,6 +9,7 @@ import com.example.chatgpt.dto.team.respDto.TeamCreateRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamDeleteRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamListRespDto;
 import com.example.chatgpt.dto.team.respDto.TeamLoginRespDto;
+import com.example.chatgpt.dto.team.respDto.TeamSelectRespDto;
 import com.example.chatgpt.entity.TeamMst;
 import com.example.chatgpt.service.TeamService;
 import jakarta.validation.Valid;
@@ -189,6 +190,32 @@ public class TeamController {
         } catch (Exception e) {
             log.error("팀 정보 수정 실패", e);
             return RespDto.fail("팀 정보 수정 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 팀 정보 조회 API (팀원 정보 포함)
+     * GET /api/v1/teams/select
+     */
+    @GetMapping("/teams/select")
+    public RespDto<TeamSelectRespDto> getTeamInfo(
+            @RequestParam("eventCode") Integer eventCode,
+            @RequestParam("teamCode") Integer teamCode) {
+        
+        try {
+            log.info("팀 정보 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+            
+            TeamSelectRespDto result = teamService.getTeamInfo(eventCode, teamCode);
+            
+            return RespDto.success("팀 정보 조회 성공", result);
+            
+        } catch (RuntimeException e) {
+            log.warn("팀 정보 조회 실패: {}", e.getMessage());
+            return RespDto.fail(e.getMessage());
+            
+        } catch (Exception e) {
+            log.error("팀 정보 조회 중 오류 발생", e);
+            return RespDto.fail("팀 정보 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
     

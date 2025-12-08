@@ -1,6 +1,7 @@
 package com.example.chatgpt.service;
 
 import com.example.chatgpt.entity.FinancialStatement;
+import com.example.chatgpt.dto.financialstatement.respDto.AvailableAmountRespDto;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementDto;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementViewRespDto;
 import com.example.chatgpt.dto.financialstatement.respDto.TeamFinancialStatementAllRespDto;
@@ -450,4 +451,67 @@ public class FinancialStatementService {
             throw new RuntimeException("팀별 재무제표 조회 실패: " + e.getMessage());
         }
     }
+    
+    /**
+     * 사용 가능한 금액 조회 (스테이지 2부터)
+     * 전 스테이지 cash_and_deposits + 현재 스테이지 accounts_payable
+     */
+    public AvailableAmountRespDto getAvailableAmount(Integer eventCode, Integer teamCode, Integer stageStep) {
+        log.info("사용 가능한 금액 조회 - eventCode: {}, teamCode: {}, stageStep: {}", eventCode, teamCode, stageStep);
+        
+        try {
+            // 스테이지 2 미만은 지원하지 않음
+            if (stageStep < 2) {
+                throw new RuntimeException("스테이지 2부터 사용 가능한 금액을 조회할 수 있습니다.");
+            }
+            
+            Integer previousStage = stageStep - 1;
+            Integer previousCashAndDeposits = null;
+            Integer currentAccountsPayable = null;
+            
+            // 1. 전 스테이지의 cash_and_deposits 조회
+            Optional<FinancialStatement> previousFs = financialStatementRepository
+                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, previousStage);
+            
+            if (previousFs.isPresent()) {
+                previousCashAndDeposits = previousFs.get().getCashAndDeposits();
+                log.info("전 스테이지({}) cash_and_deposits: {}", previousStage, previousCashAndDeposits);
+            } else {
+                log.warn("전 스테이지({}) 재무제표를 찾을 수 없습니다", previousStage);
+                throw new RuntimeException("전 스테이지(" + previousStage + ") 재무제표를 찾을 수 없습니다.");
+            }
+            
+            // 2. 현재 스테이지의 accounts_payable 조회
+            Optional<FinancialStatement> currentFs = financialStatementRepository
+                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
+            
+            if (currentFs.isPresent()) {
+                currentAccountsPayable = currentFs.get().getAccountsPayable();
+                log.info("현재 스테이지({}) accounts_payable: {}", stageStep, currentAccountsPayable);
+            } else {
+                log.warn("현재 스테이지({}) 재무제표를 찾을 수 없습니다", stageStep);
+                throw new RuntimeException("현재 스테이지(" + stageStep + ") 재무제표를 찾을 수 없습니다.");
+            }
+            
+            // 3. DTO 생성 및 반환
+            AvailableAmountRespDto result = AvailableAmountRespDto.of(
+                eventCode, teamCode, stageStep, 
+                previousCashAndDeposits, currentAccountsPayable
+            );
+            
+            log.info("사용 가능한 금액 계산 완료 - 전 스테이지 현금: {}, 현재 스테이지 매입채무: {}, 사용가능금액: {}", 
+                     previousCashAndDeposits, currentAccountsPayable, result.getAvailableAmount());
+            
+            return result;
+            
+        } catch (RuntimeException e) {
+            log.error("사용 가능한 금액 조회 중 비즈니스 오류: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("사용 가능한 금액 조회 중 시스템 오류", e);
+            throw new RuntimeException("사용 가능한 금액 조회 중 시스템 오류가 발생했습니다.");
+        }
+    }
+    
 }

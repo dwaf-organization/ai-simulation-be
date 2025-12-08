@@ -9,10 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class LoanInfoCreateReqDto {
     
-    private String eventCode;
-    private String teamCode;
-    private String stageStep;
-    private String bankCode;
+    private Integer eventCode;
+    private Integer teamCode;
+    private Integer stageStep;
+    private Integer bankCode;
     private String loanType;
     
     // Firebase 경로들 (선택적)

@@ -4,14 +4,19 @@ import com.example.chatgpt.dto.loaninfo.reqDto.LoanInfoCreateReqDto;
 import com.example.chatgpt.dto.loaninfo.respDto.LoanInfoDto;
 import com.example.chatgpt.dto.loaninfo.respDto.LoanInfoListRespDto;
 import com.example.chatgpt.entity.Bank;
+import com.example.chatgpt.entity.FinancialStatement;
+import com.example.chatgpt.entity.LoanBusinessPlan;
 import com.example.chatgpt.entity.LoanInfo;
 import com.example.chatgpt.repository.BankRepository;
+import com.example.chatgpt.repository.FinancialStatementRepository;
+import com.example.chatgpt.repository.LoanBusinessPlanRepository;
 import com.example.chatgpt.repository.LoanInfoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +28,8 @@ public class LoanInfoService {
     
     private final LoanInfoRepository loanInfoRepository;
     private final BankRepository bankRepository;
+    private final FinancialStatementRepository financialStatementRepository;
+    private final LoanBusinessPlanRepository loanBusinessPlanRepository;
     
     /**
      * 대출정보 목록 조회 (은행명 포함)
@@ -74,36 +81,32 @@ public class LoanInfoService {
         }
     }
     
+
     /**
      * 대출정보 생성 또는 업데이트 (중복시 덮어쓰기)
      */
     @Transactional
     public Integer createOrUpdateLoanInfo(LoanInfoCreateReqDto request) {
         try {
-            // 1. String 데이터를 Integer로 변환
-            Integer eventCode = Integer.valueOf(request.getEventCode());
-            Integer teamCode = Integer.valueOf(request.getTeamCode());
-            Integer stageStep = Integer.valueOf(request.getStageStep());
-            Integer bankCode = Integer.valueOf(request.getBankCode());
-            
             log.info("대출정보 생성/업데이트 요청 - eventCode: {}, teamCode: {}, stageStep: {}", 
-                     eventCode, teamCode, stageStep);
+                     request.getEventCode(), request.getTeamCode(), request.getStageStep());
             
             // 2. 기존 데이터 확인 (중복 체크)
             Optional<LoanInfo> existingLoan = loanInfoRepository
-                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
+                .findByEventCodeAndTeamCodeAndStageStep(
+                    request.getEventCode(), request.getTeamCode(), request.getStageStep());
             
             LoanInfo loanInfo;
             
             if (existingLoan.isPresent()) {
                 // 3. 기존 데이터가 있으면 업데이트 (덮어쓰기)
                 loanInfo = existingLoan.get();
-                updateLoanInfoFields(loanInfo, request, bankCode);
+                updateLoanInfoFields(loanInfo, request);
                 log.info("기존 대출정보 업데이트 - loanCode: {}", loanInfo.getLoanCode());
                 
             } else {
                 // 4. 새로운 데이터 생성
-                loanInfo = createNewLoanInfo(request, eventCode, teamCode, stageStep, bankCode);
+                loanInfo = createNewLoanInfo(request);
                 log.info("새 대출정보 생성");
             }
             
@@ -112,10 +115,6 @@ public class LoanInfoService {
             
             log.info("대출정보 저장 완료 - loanCode: {}", savedLoan.getLoanCode());
             return savedLoan.getLoanCode();
-            
-        } catch (NumberFormatException e) {
-            log.error("숫자 변환 실패", e);
-            throw new RuntimeException("잘못된 숫자 형식입니다: " + e.getMessage());
             
         } catch (Exception e) {
             log.error("대출정보 생성/업데이트 실패", e);
@@ -126,8 +125,8 @@ public class LoanInfoService {
     /**
      * 기존 대출정보 필드 업데이트
      */
-    private void updateLoanInfoFields(LoanInfo loanInfo, LoanInfoCreateReqDto request, Integer bankCode) {
-        loanInfo.setBankCode(bankCode);
+    private void updateLoanInfoFields(LoanInfo loanInfo, LoanInfoCreateReqDto request) {
+        loanInfo.setBankCode(request.getBankCode());
         loanInfo.setLoanType(request.getLoanType());
         loanInfo.setBizRegDocPath(request.getBizRegDocPath());
         loanInfo.setCorpRegDocPath(request.getCorpRegDocPath());
@@ -141,13 +140,12 @@ public class LoanInfoService {
     /**
      * 새 대출정보 생성
      */
-    private LoanInfo createNewLoanInfo(LoanInfoCreateReqDto request, Integer eventCode, 
-                                     Integer teamCode, Integer stageStep, Integer bankCode) {
+    private LoanInfo createNewLoanInfo(LoanInfoCreateReqDto request) {
         return LoanInfo.builder()
-            .eventCode(eventCode)
-            .teamCode(teamCode)
-            .stageStep(stageStep)
-            .bankCode(bankCode)
+            .eventCode(request.getEventCode())
+            .teamCode(request.getTeamCode())
+            .stageStep(request.getStageStep())
+            .bankCode(request.getBankCode())
             .loanType(request.getLoanType())
             .bizRegDocPath(request.getBizRegDocPath())
             .corpRegDocPath(request.getCorpRegDocPath())
@@ -158,4 +156,5 @@ public class LoanInfoService {
             .taxPaymentDocPath(request.getTaxPaymentDocPath())
             .build();
     }
+    
 }

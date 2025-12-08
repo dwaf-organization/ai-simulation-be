@@ -2,6 +2,7 @@ package com.example.chatgpt.service;
 
 import com.example.chatgpt.dto.team.reqDto.TeamCreateReqDto;
 import com.example.chatgpt.dto.team.reqDto.TeamUpdateReqDto;
+import com.example.chatgpt.dto.team.respDto.TeamSelectRespDto;
 import com.example.chatgpt.entity.Event;
 import com.example.chatgpt.entity.TeamDtl;
 import com.example.chatgpt.entity.TeamMst;
@@ -311,5 +312,41 @@ public class TeamService {
     public static class TeamDeleteResult {
         private Integer teamCode;
         private Integer deletedTeamMembers;
+    }
+    
+    /**
+     * 팀 정보 조회 (팀 상세 정보 + 팀원 목록)
+     */
+    public TeamSelectRespDto getTeamInfo(Integer eventCode, Integer teamCode) {
+        log.info("팀 정보 조회 요청 - eventCode: {}, teamCode: {}", eventCode, teamCode);
+        
+        try {
+            // 1. 팀 기본 정보 조회
+            Optional<TeamMst> optionalTeam = teamMstRepository.findByEventCodeAndTeamCode(eventCode, teamCode);
+            if (optionalTeam.isEmpty()) {
+                throw new RuntimeException("해당 팀을 찾을 수 없습니다.");
+            }
+            
+            TeamMst teamMst = optionalTeam.get();
+            
+            // 2. 팀원 목록 조회
+            List<TeamDtl> teamMembers = teamDtlRepository.findByTeamCode(teamCode);
+            
+            // 3. DTO 생성 및 반환
+            TeamSelectRespDto result = TeamSelectRespDto.from(teamMst, teamMembers);
+            
+            log.info("팀 정보 조회 완료 - teamCode: {}, teamName: {}, 팀원 수: {}", 
+                     teamCode, teamMst.getTeamName(), teamMembers.size());
+            
+            return result;
+            
+        } catch (RuntimeException e) {
+            log.error("팀 정보 조회 중 비즈니스 오류: {}", e.getMessage());
+            throw e;
+            
+        } catch (Exception e) {
+            log.error("팀 정보 조회 중 시스템 오류", e);
+            throw new RuntimeException("팀 정보 조회 중 시스템 오류가 발생했습니다.");
+        }
     }
 }
