@@ -89,10 +89,10 @@ public class AdminTriggerService {
         Event event = eventRepository.findById(eventCode)
             .orElseThrow(() -> new RuntimeException("행사를 찾을 수 없습니다. eventCode: " + eventCode));
         
-        event.setSummaryViewProcess(stage + 1);
+        event.setSummaryViewProcess(stage);
         eventRepository.save(event);
         
-        log.info("summary_view_process 업데이트 완료 - eventCode: {}, 값: {}", eventCode, stage + 1);
+        log.info("summary_view_process 업데이트 완료 - eventCode: {}, 값: {}", eventCode, stage);
     }
     
     /**

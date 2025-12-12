@@ -28,6 +28,10 @@ public class SecurityConfig {
             "http://localhost:3000",     // React 개발서버
             "http://localhost:8000",     // 프론트엔드 서버
             "http://localhost:8080",     // 추가 개발서버
+            "https://www.k-biz-ai.com",
+            "https://www.k-biz-ai.com/",
+            "https://k-biz-ai.com",
+            "https://k-biz-ai.com/",
             "*"                          // 개발 테스트용 (운영에서는 제거)
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));

@@ -94,7 +94,7 @@ public class FinancialStatementController {
      * 사용 가능한 금액 조회 API (스테이지 2부터)
      * GET /api/v1/financial-statement/available-amount/{eventCode}/{teamCode}/{stageStep}
      */
-    @GetMapping("/v1/financial-statement/available-amount/{eventCode}/{teamCode}/{stageStep}")
+    @GetMapping("/available-amount/{eventCode}/{teamCode}/{stageStep}")
     public ResponseEntity<RespDto<AvailableAmountRespDto>> getAvailableAmount(
             @PathVariable("eventCode") Integer eventCode,
             @PathVariable("teamCode") Integer teamCode,
