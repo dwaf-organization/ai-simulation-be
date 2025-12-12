@@ -74,7 +74,7 @@ public class AdminTriggerService {
             .orElseThrow(() -> new RuntimeException("존재하지 않는 행사입니다. eventCode: " + eventCode));
         
         // 2. summary_view_process를 2로 설정 (Stage1 완료)
-        event.setSummaryViewProcess(2);
+        event.setSummaryViewProcess(1);
         eventRepository.save(event);
         
         log.info("Stage1 요약보기 처리 완료 - eventCode: {}, summary_view_process: 2", eventCode);

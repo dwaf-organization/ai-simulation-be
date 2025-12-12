@@ -149,7 +149,8 @@ public class OperatingExpenseService {
             }
             
             // 3. ChatGPT로 지출 분류 및 재무제표 완성
-            Map<String, Long> financialData = classifyExpensesAndGenerateFinancials(fs.getRevenue(), expenses);
+            Map<String, Long> financialData = classifyExpensesAndGenerateFinancials(
+            	    fs.getRevenue(), expenses, eventCode, teamCode, stageStep);
             
             // 4. financial_statement 업데이트
             updateFinancialStatement(fs, financialData);
@@ -165,7 +166,12 @@ public class OperatingExpenseService {
     /**
      * ChatGPT로 지출 분류 및 재무제표 생성
      */
-    private Map<String, Long> classifyExpensesAndGenerateFinancials(Integer revenue, List<OperatingExpense> expenses) {
+    private Map<String, Long> classifyExpensesAndGenerateFinancials(
+    	    Integer revenue, 
+    	    List<OperatingExpense> expenses, 
+    	    Integer eventCode, 
+    	    Integer teamCode, 
+    	    Integer stageStep) {
         // 지출 정보 정리 및 총 지출액 계산
         StringBuilder expenseInfo = new StringBuilder();
         long totalExpenseAmount = 0;
@@ -184,9 +190,8 @@ public class OperatingExpenseService {
             }
         }
         
-        // 현금 계산: 초기 2억원 - 총 지출
-        long initialCash = 200_000_000L; // 2억원
-        long remainingCash = initialCash - totalExpenseAmount;
+        long previousCash = getPreviousStageRemainingCash(eventCode, teamCode, stageStep);
+        long remainingCash = previousCash - totalExpenseAmount;
         
         // ChatGPT 프롬프트 생성
         String prompt = createFinancialAnalysisPrompt(revenue, totalExpenseAmount, expenseInfo.toString(), remainingCash);
@@ -211,6 +216,31 @@ public class OperatingExpenseService {
     }
     
     /**
+     * 이전 스테이지의 잔액 조회
+     * 스테이지 2: 2억원 (초기값)
+     * 스테이지 3+: 이전 스테이지의 cashAndDeposits
+     */
+    private long getPreviousStageRemainingCash(Integer eventCode, Integer teamCode, Integer currentStage) {
+        if (currentStage == 2) {
+            // 스테이지 2는 초기 2억원
+            return 200_000_000L;
+        }
+        
+        // 스테이지 3부터는 이전 스테이지 잔액 조회
+        Integer previousStage = currentStage - 1;
+        
+        Optional<FinancialStatement> previousFs = financialStatementRepository
+            .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, previousStage);
+        
+        if (previousFs.isPresent()) {
+            return previousFs.get().getCashAndDeposits().longValue();
+        } else {
+            log.warn("이전 스테이지({}) 재무제표를 찾을 수 없습니다. 기본값 2억 사용", previousStage);
+            return 200_000_000L; // 폴백
+        }
+    }
+    
+    /**
      * 재무분석 ChatGPT 프롬프트 생성
      */
     private String createFinancialAnalysisPrompt(Integer revenue, long totalExpenseAmount, String expenseDetails, long remainingCash) {
@@ -230,7 +260,7 @@ public class OperatingExpenseService {
         prompt.append("1. **중요**: 각 지출을 내용 분석하여 **판매관리비** 또는 **연구개발비**로 분류\n");
         prompt.append("2. 판관비(sgna_expenses)와 R&D(rnd_expenses)는 실제 지출 분류 결과의 합계로 설정\n");
         prompt.append("3. 나머지 재무제표 항목들을 매출 대비 합리적인 비율로 생성\n");
-        prompt.append("4. fs_score는 재무상태를 종합적으로 판단하여 1-100점 부여\n\n");
+        prompt.append("4. fs_score는 재무상태를 종합적으로 판단하여 1-100점 부여, 숫자만 줘\n\n");
         
         prompt.append("## 분류 기준\n");
         prompt.append("- **판매관리비**: 마케팅, 광고, 인사, 총무, 영업, 관리 관련 비용\n");
@@ -257,7 +287,7 @@ public class OperatingExpenseService {
         prompt.append("  \"borrowings\": 차입금_금액(숫자만),\n");
         prompt.append("  \"capitalStock\": 자본금_금액(숫자만),\n");
         prompt.append("  \"totalLiabilitiesEquity\": 부채자본총계_금액(숫자만),\n");
-        prompt.append("  \"fsScore\": 재무상태점수(1-100점),\n");
+        prompt.append("  \"fsScore\": 재무상태점수(1-100, 숫자만),\n");
         prompt.append("  \"expenseClassification\": {\n");
         prompt.append("    \"sgnaItems\": [\"판매관리비로 분류된 항목들\"],\n");
         prompt.append("    \"rndItems\": [\"연구개발비로 분류된 항목들\"]\n");
@@ -393,7 +423,6 @@ public class OperatingExpenseService {
         fs.setTotalAssets(financialData.get("totalAssets").intValue());
         
         // 부채 및 자본
-        fs.setAccountsPayable(financialData.get("accountsPayable").intValue());
         fs.setBorrowings(financialData.get("borrowings").intValue());
         fs.setCapitalStock(financialData.get("capitalStock").intValue());
         fs.setTotalLiabilitiesEquity(financialData.get("totalLiabilitiesEquity").intValue());
@@ -402,6 +431,8 @@ public class OperatingExpenseService {
         fs.setFsScore(financialData.get("fsScore").intValue());
         
         financialStatementRepository.save(fs);
+        
+        System.out.println(financialData.get("fsScore").intValue());
         
         log.info("재무제표 업데이트 완료 - teamCode: {}, 현금: {}원, 판관비: {}원, R&D: {}원", 
                  fs.getTeamCode(), 

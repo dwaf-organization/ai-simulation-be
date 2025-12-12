@@ -241,6 +241,7 @@ public class LoanBusinessPlanService {
         prompt.append("## 산정 범위\n");
         prompt.append("- 최소: 0만원 (대출 불가)\n");
         prompt.append("- 최대: 100,000만원 (10억원)\n\n");
+        prompt.append("- 대출희망금액(DesiredLoanAmount)값보다 작게 산정되어야합니다.\n");
         
         prompt.append("## 응답 형식\n");
         prompt.append("다음 JSON 형식으로 응답하세요:\n\n");
