@@ -5,6 +5,7 @@ import com.example.chatgpt.repository.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.springframework.retry.annotation.EnableRetry;
+
+@EnableRetry
 @Service
 @RequiredArgsConstructor
 @Slf4j

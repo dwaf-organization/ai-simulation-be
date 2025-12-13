@@ -9,7 +9,9 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @RequiredArgsConstructor
 @Slf4j

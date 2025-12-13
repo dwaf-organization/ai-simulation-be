@@ -25,7 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @RequiredArgsConstructor
 @Slf4j

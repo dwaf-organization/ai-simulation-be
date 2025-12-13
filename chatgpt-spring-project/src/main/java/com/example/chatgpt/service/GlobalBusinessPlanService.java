@@ -5,7 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 /**
  * 국가별 사업계획서 생성 서비스
  */

@@ -9,7 +9,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @Slf4j
 public class OpenAiService {

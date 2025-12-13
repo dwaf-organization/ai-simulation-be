@@ -10,7 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @RequiredArgsConstructor
 @Slf4j

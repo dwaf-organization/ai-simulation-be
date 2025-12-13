@@ -17,7 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @Slf4j
 @RequiredArgsConstructor

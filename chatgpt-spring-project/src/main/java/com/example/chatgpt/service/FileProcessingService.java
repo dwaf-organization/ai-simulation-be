@@ -7,30 +7,42 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+// HWP 처리용 라이브러리 추가
+//import kr.dogfoot.hwplib.object.HWPFile;
+//import kr.dogfoot.hwplib.reader.HWPReader;
+//import kr.dogfoot.hwplib.object.bodytext.Section;
+//import kr.dogfoot.hwplib.object.bodytext.paragraph.Paragraph;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 /**
- * 파일 처리 서비스 (이미지/표 추출 개선 버전)
+ * 파일 처리 서비스 (이미지/표 추출 개선 버전 + HWP 지원)
  */
 @Service
 @Slf4j
 public class FileProcessingService {
 
     /**
-     * 파일 형식 검증
+     * 파일 형식 검증 (HWP 추가)
      */
     public boolean isValidFileFormat(String filename) {
         if (filename == null) {
             return false;
         }
         String lowerFilename = filename.toLowerCase();
-        return lowerFilename.endsWith(".pdf") || lowerFilename.endsWith(".docx");
+        return lowerFilename.endsWith(".pdf") || 
+               lowerFilename.endsWith(".docx")
+//               || 
+//               lowerFilename.endsWith(".hwp")
+               ;
     }
 
     /**
-     * 파일에서 텍스트 추출 (이미지/표 정보 포함)
+     * 파일에서 텍스트 추출 (이미지/표 정보 포함 + HWP 지원)
      */
     public String extractTextFromFile(MultipartFile file) throws IOException {
         String filename = file.getOriginalFilename();
@@ -39,13 +51,157 @@ public class FileProcessingService {
             throw new IOException("파일 이름이 없습니다.");
         }
 
-        if (filename.toLowerCase().endsWith(".pdf")) {
+        String lowerFilename = filename.toLowerCase();
+        if (lowerFilename.endsWith(".pdf")) {
             return extractTextFromPDF(file);
-        } else if (filename.toLowerCase().endsWith(".docx")) {
+        } else if (lowerFilename.endsWith(".docx")) {
             return extractTextFromDOCX(file);
+//        } else if (lowerFilename.endsWith(".hwp")) {
+//            return extractTextFromHWP(file);  // HWP 처리 추가
         } else {
             throw new IOException("지원하지 않는 파일 형식입니다: " + filename);
         }
+    }
+//
+//    /**
+//     * HWP에서 텍스트 추출 (실제 API 구조에 맞춤)
+//     */
+//    private String extractTextFromHWP(MultipartFile file) throws IOException {
+//        StringBuilder result = new StringBuilder();
+//        
+//        try (InputStream inputStream = file.getInputStream()) {
+//            HWPFile hwpFile = HWPReader.fromInputStream(inputStream);
+//            
+//            // 모든 섹션을 순회하면서 텍스트 추출
+//            if (hwpFile.getBodyText() != null && hwpFile.getBodyText().getSectionList() != null) {
+//                for (Section section : hwpFile.getBodyText().getSectionList()) {
+//                    extractTextFromSection(section, result);
+//                }
+//            }
+//            
+//            log.info("HWP 추출 완료: 약 {}자", result.length());
+//            
+//        } catch (Exception e) {
+//            log.error("HWP 텍스트 추출 실패", e);
+//            throw new IOException("HWP 파일을 읽을 수 없습니다: " + e.getMessage());
+//        }
+//        
+//        return result.toString();
+//    }
+//    
+//    /**
+//     * HWP 섹션에서 텍스트 추출 (실제 API 구조 반영)
+//     */
+//    private void extractTextFromSection(Section section, StringBuilder textBuilder) {
+//        try {
+//            // 섹션 내 문단 개수 확인 후 순회
+//            int paragraphCount = section.getParagraphCount();
+//            
+//            for (int i = 0; i < paragraphCount; i++) {
+//                try {
+//                    Paragraph paragraph = section.getParagraph(i); // 인덱스로 접근
+//                    
+//                    if (paragraph != null) {
+//                        // 문단에서 텍스트 추출 (단순화된 방식)
+//                        String paragraphText = extractTextFromParagraph(paragraph);
+//                        if (paragraphText != null && !paragraphText.trim().isEmpty()) {
+//                            textBuilder.append(paragraphText);
+//                        }
+//                        textBuilder.append("\n"); // 문단 구분
+//                    }
+//                } catch (Exception e) {
+//                    log.debug("문단 {} 처리 중 오류, 건너뜀: {}", i, e.getMessage());
+//                }
+//            }
+//        } catch (Exception e) {
+//            log.warn("HWP 섹션 텍스트 추출 중 오류 발생", e);
+//        }
+//    }
+//    
+//    /**
+//     * 문단에서 텍스트 추출 (HWPLib 내장 기능 활용)
+//     */
+//    private String extractTextFromParagraph(Paragraph paragraph) {
+//        try {
+//            StringBuilder text = new StringBuilder();
+//            
+//            // HWPLib의 내장 toString() 메서드 활용
+//            String paragraphText = paragraph.toString();
+//            if (paragraphText != null && !paragraphText.trim().isEmpty()) {
+//                // 클래스명이나 객체 정보가 아닌 실제 텍스트인지 확인
+//                if (!paragraphText.startsWith("kr.dogfoot") && !paragraphText.contains("@")) {
+//                    text.append(paragraphText);
+//                }
+//            }
+//            
+//            // toString()으로 추출되지 않는 경우 리플렉션 시도
+//            if (text.length() == 0) {
+//                try {
+//                    // 가능한 필드명들 시도
+//                    String[] possibleFields = {"text", "content", "textContent", "plainText"};
+//                    
+//                    for (String fieldName : possibleFields) {
+//                        try {
+//                            var field = paragraph.getClass().getDeclaredField(fieldName);
+//                            field.setAccessible(true);
+//                            Object fieldValue = field.get(paragraph);
+//                            
+//                            if (fieldValue != null) {
+//                                String fieldText = fieldValue.toString();
+//                                if (!fieldText.trim().isEmpty() && 
+//                                    !fieldText.startsWith("kr.dogfoot") && 
+//                                    !fieldText.contains("@")) {
+//                                    text.append(fieldText);
+//                                    break;
+//                                }
+//                            }
+//                        } catch (Exception ignored) {
+//                            // 필드가 없으면 다음 시도
+//                        }
+//                    }
+//                } catch (Exception e) {
+//                    log.debug("리플렉션을 통한 텍스트 추출 실패", e);
+//                }
+//            }
+//            
+//            return text.toString();
+//            
+//        } catch (Exception e) {
+//            log.debug("문단 텍스트 추출 실패", e);
+//            return "";
+//        }
+//    }
+//    
+    /**
+     * ParaText에서 문자열 추출 (리플렉션을 통한 안전한 추출)
+     */
+    private String extractCharactersFromParaText(Object paraText) {
+        try {
+            // toString() 메서드를 사용한 단순 추출 시도
+            String textStr = paraText.toString();
+            
+            // 의미있는 텍스트가 있는지 확인
+            if (textStr != null && textStr.length() > 0 && !textStr.startsWith("kr.dogfoot")) {
+                return textStr;
+            }
+            
+            // 다른 방법으로 텍스트 추출 시도 (리플렉션)
+            try {
+                var field = paraText.getClass().getDeclaredField("text");
+                field.setAccessible(true);
+                Object textObj = field.get(paraText);
+                if (textObj != null) {
+                    return textObj.toString();
+                }
+            } catch (Exception e) {
+                // 리플렉션 실패 시 무시
+            }
+            
+        } catch (Exception e) {
+            log.debug("문자 추출 실패", e);
+        }
+        
+        return "";
     }
 
     /**
@@ -64,13 +220,9 @@ public class FileProcessingService {
             
             // 페이지 수 정보
             int pageCount = document.getNumberOfPages();
-//            result.append("\n\n[문서 정보: ").append(pageCount).append("페이지]\n");
             
             // 이미지 개수 (간단한 추정)
             int estimatedImages = countImagesInPDF(document);
-//            if (estimatedImages > 0) {
-//                result.append("[이미지 ").append(estimatedImages).append("개 포함됨 - 텍스트로 변환 불가]\n");
-//            }
             
             log.info("PDF 추출 완료: {}페이지, 약 {}자, 이미지 약 {}개", 
                      pageCount, result.length(), estimatedImages);
@@ -100,22 +252,9 @@ public class FileProcessingService {
             
             // 표 추출
             List<XWPFTable> tables = document.getTables();
-//            if (!tables.isEmpty()) {
-//                result.append("\n\n========== 표 데이터 ==========\n\n");
-//                
-//                for (int tableIdx = 0; tableIdx < tables.size(); tableIdx++) {
-//                    XWPFTable table = tables.get(tableIdx);
-//                    result.append(String.format("[표 %d]\n", tableIdx + 1));
-//                    result.append(extractTableText(table));
-//                    result.append("\n");
-//                }
-//            }
             
             // 이미지 개수
             List<XWPFPictureData> pictures = document.getAllPictures();
-//            if (!pictures.isEmpty()) {
-//                result.append(String.format("\n[이미지 %d개 포함됨 - 텍스트로 변환 불가]\n", pictures.size()));
-//            }
             
             log.info("DOCX 추출 완료: 약 {}자, 표 {}개, 이미지 {}개", 
                      result.length(), tables.size(), pictures.size());

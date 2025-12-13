@@ -11,7 +11,9 @@ import jakarta.annotation.PostConstruct;
 import java.io.InputStream;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 /**
  * 엑셀 파일에서 의사결정 변수를 로드하는 서비스
  */

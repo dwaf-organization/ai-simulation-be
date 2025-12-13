@@ -8,7 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 /**
  * 답변을 손익계산서 영업비용 항목으로 분류하는 서비스
  */

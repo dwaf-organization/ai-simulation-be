@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 /**
  * 사업계획서 분석 서비스 (8개 객관식 + 2개 주관식) + DB 저장
  */

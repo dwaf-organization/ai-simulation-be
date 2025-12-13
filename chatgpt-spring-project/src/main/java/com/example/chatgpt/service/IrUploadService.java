@@ -16,7 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.retry.annotation.EnableRetry;
 
+@EnableRetry
 @Service
 @RequiredArgsConstructor
 @Slf4j
