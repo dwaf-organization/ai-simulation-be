@@ -26,10 +26,21 @@ public class DeadlockPreventionAspect {
         String methodName = joinPoint.getSignature().getName();
         String className = joinPoint.getTarget().getClass().getSimpleName();
         
+        boolean isLongRunning = methodName.contains("ChatGpt") || 
+                methodName.contains("generate") || 
+                className.contains("BusinessPlan");
+        
         synchronized(GLOBAL_DB_LOCK) {
             try {
                 log.debug("데드락 방지 Lock 획득: {}.{}", className, methodName);
-                return joinPoint.proceed();
+                
+                if (isLongRunning) {
+                    // 긴 작업에는 별도 처리 (Lock 없이)
+                    log.debug("긴 작업 감지, Lock 우회: {}.{}", className, methodName);
+                    return joinPoint.proceed();
+                } else {
+                    return joinPoint.proceed();
+                }
                 
             } catch (Exception e) {
                 if (isDeadlockException(e)) {

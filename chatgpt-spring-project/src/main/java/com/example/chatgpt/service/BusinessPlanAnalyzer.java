@@ -48,7 +48,7 @@ public class BusinessPlanAnalyzer {
     /**
      * 질문 생성 및 DB 저장 (메인 메서드)
      */
-    @Transactional
+    @Transactional(timeout = 180)
     public Map<String, Object> generateQuestionsAndSave(
             Integer eventCode,
             Integer teamCode, 

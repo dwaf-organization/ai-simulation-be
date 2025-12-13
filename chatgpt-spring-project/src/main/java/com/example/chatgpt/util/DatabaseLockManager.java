@@ -28,13 +28,21 @@ public class DatabaseLockManager {
         Object lock = getLockByServiceType(serviceType);
         String serviceName = serviceType.name();
         
+        long startTime = System.currentTimeMillis();
+        long timeoutMs = 60000; // 60초 타임아웃
+        
         synchronized(lock) {
             try {
+                // 타임아웃 체크
+                if (System.currentTimeMillis() - startTime > timeoutMs) {
+                    throw new RuntimeException("Lock 대기 시간 초과: " + serviceName);
+                }
+                
                 log.debug("DB Lock 획득: {}", serviceName);
                 operation.run();
                 
             } catch (Exception e) {
-                if (isDeadlockException(e)) {
+            	if (isDeadlockException(e) || isTimeoutException(e)) {
                     log.warn("데드락 감지 후 재시도: {} - {}", serviceName, e.getMessage());
                     
                     try {
@@ -53,6 +61,14 @@ public class DatabaseLockManager {
                 log.debug("DB Lock 해제: {}", serviceName);
             }
         }
+    }
+    
+    private boolean isTimeoutException(Throwable e) {
+        String message = e.getMessage();
+        if (message == null) return false;
+        
+        return message.toLowerCase().contains("timeout") ||
+               message.toLowerCase().contains("expired");
     }
     
     /**
