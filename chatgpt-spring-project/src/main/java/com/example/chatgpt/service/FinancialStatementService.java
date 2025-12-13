@@ -6,7 +6,6 @@ import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementDto;
 import com.example.chatgpt.dto.financialstatement.respDto.FinancialStatementViewRespDto;
 import com.example.chatgpt.dto.financialstatement.respDto.TeamFinancialStatementAllRespDto;
 import com.example.chatgpt.repository.FinancialStatementRepository;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -183,7 +182,9 @@ public class FinancialStatementService {
         prompt.append("- 유형자산 (사무용품, 장비 등)\n");
         prompt.append("- 무형자산 (소프트웨어, 특허 등)\n");
         prompt.append("- 재고자산 (필요한 경우)\n");
-        prompt.append("- 매입채무\n\n");
+        prompt.append("- 매입채무\n");
+        prompt.append("- 매출원가 비율 (매출 대비 %)\n");
+        prompt.append("- 영업외수익 (있는 경우)\n\n");
         
         prompt.append("# 출력 형식 (JSON):\n");
         prompt.append("{\n");
@@ -192,9 +193,12 @@ public class FinancialStatementService {
         prompt.append("  \"intangible_assets\": 무형자산(만원단위),\n");
         prompt.append("  \"inventory_assets\": 재고자산(만원단위),\n");
         prompt.append("  \"accounts_payable\": 매입채무(만원단위),\n");
+        prompt.append("  \"cogs_ratio\": 매출원가비율(0.1~0.8사이소수),\n");
+        prompt.append("  \"non_operating_income\": 영업외수익(만원단위),\n");
         prompt.append("  \"reasoning\": \"추정 근거\"\n");
         prompt.append("}\n\n");
-        prompt.append("주의: 현실적이고 보수적으로 추정하세요.");
+        prompt.append("주의: 현실적이고 보수적으로 추정하세요. 매출원가비율은 업종에 맞게 설정하세요.");
+        prompt.append("제조업: 50-70%, 서비스업: 20-40%, IT/소프트웨어: 10-30%, 유통업: 60-80%");
         
         try {
             String response = openAiService.chat(prompt.toString());
@@ -268,14 +272,25 @@ public class FinancialStatementService {
         int totalLiabilities = accountsPayable + borrowings;
         int equity = totalAssets - totalLiabilities;
         
-        // 손익 계산
-        int cogs = revenue / 2; // 임시: 매출의 50%를 매출원가로 가정
+        // 손익 계산 (AI 기반)
+        double cogsRatio = ((Number) estimations.getOrDefault("cogs_ratio", 0.4)).doubleValue(); // 기본 40%
+        int cogs = Math.max(1, (int) (revenue * cogsRatio)); // 최소 1만원 이상
         int grossProfit = revenue - cogs;
         int sgnaExpenses = expenseAnalysis.getOrDefault("sgna_monthly", 0);
         int rndExpenses = expenseAnalysis.getOrDefault("rnd_monthly", 0);
+        
+        // 영업이익 계산
         int operatingIncome = grossProfit - sgnaExpenses - rndExpenses;
-        int corporateTax = operatingIncome > 0 ? (int) (operatingIncome * 0.2) : 0; // 20% 세율
-        int netIncome = operatingIncome - corporateTax;
+        
+        // 영업외수익 (AI 추정값 사용)
+        int nonOperatingIncome = Math.max(0, (Integer) estimations.getOrDefault("non_operating_income", 0));
+        
+        // 법인세 계산 (영업이익 + 영업외수익이 양수일 때만)
+        int taxableIncome = operatingIncome + nonOperatingIncome;
+        int corporateTax = taxableIncome > 0 ? Math.max(1, (int) (taxableIncome * 0.22)) : 0; // 22% 세율, 최소 1만원
+        
+        // 순이익 계산
+        int netIncome = taxableIncome - corporateTax;
         
         return FinancialStatement.builder()
                 .teamCode(teamCode)
@@ -295,7 +310,7 @@ public class FinancialStatementService {
                 .sgnaExpenses(sgnaExpenses)
                 .rndExpenses(rndExpenses)
                 .operatingIncome(operatingIncome)
-                .nonOperatingIncome(0)
+                .nonOperatingIncome(nonOperatingIncome)
                 .corporateTax(corporateTax)
                 .netIncome(netIncome)
                 .fsScore(calculateFSScore(revenue, netIncome, totalAssets))
@@ -388,11 +403,13 @@ public class FinancialStatementService {
     
     private Map<String, Object> getDefaultEstimations() {
         Map<String, Object> defaults = new HashMap<>();
-        defaults.put("monthly_revenue", 5000);
-        defaults.put("tangible_assets", 1000);
-        defaults.put("intangible_assets", 500);
-        defaults.put("inventory_assets", 0);
-        defaults.put("accounts_payable", 500);
+        defaults.put("monthly_revenue", 3000); // 최소 3000만원
+        defaults.put("tangible_assets", 800);  // 최소 800만원
+        defaults.put("intangible_assets", 400); // 최소 400만원
+        defaults.put("inventory_assets", 200);  // 최소 200만원 (0이 아닌 값)
+        defaults.put("accounts_payable", 300);  // 최소 300만원
+        defaults.put("cogs_ratio", 0.35);       // 기본 35% (서비스업 수준)
+        defaults.put("non_operating_income", 50); // 최소 50만원 영업외수익
         return defaults;
     }
     

@@ -2,9 +2,11 @@ package com.example.chatgpt.service;
 
 import com.example.chatgpt.entity.StageSummary;
 import com.example.chatgpt.repository.StageSummaryRepository;
+import com.example.chatgpt.util.DatabaseLockManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -19,10 +21,12 @@ public class StageSummaryService {
     
     private final StageSummaryRepository stageSummaryRepository;
     private final OpenAiService openAiService;
+    private final DatabaseLockManager lockManager;  // Lock Manager 추가
     
     /**
-     * Stage 요약본 생성
+     * Stage 요약본 생성 (데드락 방지 적용)
      */
+    @Transactional
     public StageSummary generateStageSummary(
             Integer eventCode,
             Integer teamCode,
@@ -30,42 +34,45 @@ public class StageSummaryService {
             String businessPlan,
             Map<String, Object> stageAnswers) {
         
-        try {
-            log.info("Stage {} 요약본 생성 시작 - teamCode: {}", stageStep, teamCode);
-            
-            // 1. ChatGPT 프롬프트 생성
-            String prompt = buildSummaryPrompt(stageStep, businessPlan, stageAnswers);
-            
-            // 2. ChatGPT로 요약본 생성
-            String summaryContent = openAiService.chat(prompt);
-            
-            // 3. 기존 요약본 확인 및 업데이트/생성
-            StageSummary stageSummary;
-            Optional<StageSummary> existing = stageSummaryRepository.findByTeamCodeAndStageStep(teamCode, stageStep);
-            
-            if (existing.isPresent()) {
-                // 기존 요약본 업데이트
-                stageSummary = existing.get();
-                stageSummary.setSummaryText(summaryContent);
-                log.info("기존 Stage {} 요약본 업데이트", stageStep);
-            } else {
-                // 새 요약본 생성
-                stageSummary = StageSummary.builder()
-                        .eventCode(eventCode)
-                        .teamCode(teamCode)
-                        .stageStep(stageStep)
-                        .summaryText(summaryContent)
-                        .build();
-                log.info("새로운 Stage {} 요약본 생성", stageStep);
+        log.info("Stage {} 요약본 생성 시작 - teamCode: {}", stageStep, teamCode);
+        
+        // 데드락 방지를 위한 Lock 적용
+        return lockManager.executeWithLock(DatabaseLockManager.ServiceType.STAGE_SUMMARY, () -> {
+            try {
+                // 1. ChatGPT 프롬프트 생성
+                String prompt = buildSummaryPrompt(stageStep, businessPlan, stageAnswers);
+                
+                // 2. ChatGPT로 요약본 생성
+                String summaryContent = openAiService.chat(prompt);
+                
+                // 3. 기존 요약본 확인 및 업데이트/생성
+                StageSummary stageSummary;
+                Optional<StageSummary> existing = stageSummaryRepository.findByTeamCodeAndStageStep(teamCode, stageStep);
+                
+                if (existing.isPresent()) {
+                    // 기존 요약본 업데이트
+                    stageSummary = existing.get();
+                    stageSummary.setSummaryText(summaryContent);
+                    log.info("기존 Stage {} 요약본 업데이트", stageStep);
+                } else {
+                    // 새 요약본 생성
+                    stageSummary = StageSummary.builder()
+                            .eventCode(eventCode)
+                            .teamCode(teamCode)
+                            .stageStep(stageStep)
+                            .summaryText(summaryContent)
+                            .build();
+                    log.info("새로운 Stage {} 요약본 생성", stageStep);
+                }
+                
+                // 4. 저장
+                return stageSummaryRepository.save(stageSummary);
+                
+            } catch (Exception e) {
+                log.error("Stage {} 요약본 생성 실패 - teamCode: {}", stageStep, teamCode, e);
+                throw new RuntimeException("요약본 생성 중 오류가 발생했습니다.", e);
             }
-            
-            // 4. 저장
-            return stageSummaryRepository.save(stageSummary);
-            
-        } catch (Exception e) {
-            log.error("Stage {} 요약본 생성 실패 - teamCode: {}", stageStep, teamCode, e);
-            throw new RuntimeException("요약본 생성 중 오류가 발생했습니다.", e);
-        }
+        });
     }
     
     /**
@@ -216,20 +223,26 @@ public class StageSummaryService {
     }
     
     /**
-     * 요약본 삭제
+     * 요약본 삭제 (데드락 방지 적용)
      */
+    @Transactional
     public void deleteStageSummary(Integer teamCode, Integer stageStep) {
-        stageSummaryRepository.findByTeamCodeAndStageStep(teamCode, stageStep)
-            .ifPresent(stageSummaryRepository::delete);
-        log.info("Stage {} 요약본 삭제 완료 - teamCode: {}", stageStep, teamCode);
+        lockManager.executeWithLock(DatabaseLockManager.ServiceType.STAGE_SUMMARY, () -> {
+            stageSummaryRepository.findByTeamCodeAndStageStep(teamCode, stageStep)
+                .ifPresent(stageSummaryRepository::delete);
+            log.info("Stage {} 요약본 삭제 완료 - teamCode: {}", stageStep, teamCode);
+        });
     }
     
     /**
-     * 팀의 모든 요약본 삭제
+     * 팀의 모든 요약본 삭제 (데드락 방지 적용)
      */
+    @Transactional
     public void deleteAllTeamSummaries(Integer teamCode) {
-        List<StageSummary> summaries = stageSummaryRepository.findByTeamCodeOrderByStageStep(teamCode);
-        stageSummaryRepository.deleteAll(summaries);
-        log.info("팀 {} 모든 요약본 삭제 완료", teamCode);
+        lockManager.executeWithLock(DatabaseLockManager.ServiceType.STAGE_SUMMARY, () -> {
+            List<StageSummary> summaries = stageSummaryRepository.findByTeamCodeOrderByStageStep(teamCode);
+            stageSummaryRepository.deleteAll(summaries);
+            log.info("팀 {} 모든 요약본 삭제 완료", teamCode);
+        });
     }
 }

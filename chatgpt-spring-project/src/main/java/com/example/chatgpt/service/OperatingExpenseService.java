@@ -4,6 +4,7 @@ import com.example.chatgpt.entity.OperatingExpense;
 import com.example.chatgpt.entity.FinancialStatement;
 import com.example.chatgpt.entity.CompanyCapabilityScore;
 import com.example.chatgpt.repository.OperatingExpenseRepository;
+import com.example.chatgpt.util.DatabaseLockManager;
 import com.example.chatgpt.repository.FinancialStatementRepository;
 import com.example.chatgpt.repository.CompanyCapabilityScoreRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class OperatingExpenseService {
     private final FinancialStatementRepository financialStatementRepository;
     private final CompanyCapabilityScoreRepository companyCapabilityScoreRepository;
     private final BusinessPlanAnalyzer businessPlanAnalyzer; // ChatGPT API 호출
+    private final DatabaseLockManager lockManager;  // Lock Manager 추가
     
     /**
      * 지출 조회
@@ -63,66 +65,69 @@ public class OperatingExpenseService {
     }
 
     /**
-     * 지출 업데이트 + 재무제표 완성
+     * 지출 업데이트 + 재무제표 완성 (데드락 방지 적용)
      */
     @Transactional
     public void updateExpenses(List<Map<String, Object>> expenses) {
         log.info("지출 업데이트 시작 - {} 개 항목", expenses.size());
         
-        // 1. 지출 금액 업데이트
-        Integer eventCode = null;
-        Integer teamCode = null;
-        Integer stageStep = null;
-        
-        for (Map<String, Object> expenseData : expenses) {
-            Integer expenseCode = (Integer) expenseData.get("expenseCode");
-            String expenseAmount = (String) expenseData.get("expenseAmount");
+        // 데드락 방지를 위한 Lock 적용
+        lockManager.executeWithLock(DatabaseLockManager.ServiceType.OPERATING_EXPENSE, () -> {
+            // 1. 지출 금액 업데이트
+            Integer eventCode = null;
+            Integer teamCode = null;
+            Integer stageStep = null;
             
-            if (expenseCode == null) {
-                log.warn("expenseCode가 null입니다. 건너뜁니다.");
-                continue;
-            }
-            
-            if (expenseAmount == null || expenseAmount.trim().isEmpty()) {
-                log.warn("expenseAmount가 비어있습니다. expenseCode: {}", expenseCode);
-                continue;
-            }
-            
-            // 해당 지출 항목 조회 및 업데이트
-            Optional<OperatingExpense> expenseOpt = operatingExpenseRepository.findById(expenseCode);
-            
-            if (expenseOpt.isPresent()) {
-                OperatingExpense expense = expenseOpt.get();
-                expense.setExpenseAmount(expenseAmount);
-                operatingExpenseRepository.save(expense);
+            for (Map<String, Object> expenseData : expenses) {
+                Integer expenseCode = (Integer) expenseData.get("expenseCode");
+                String expenseAmount = (String) expenseData.get("expenseAmount");
                 
-                // 첫 번째 지출에서 이벤트/팀/스테이지 정보 추출
-                if (eventCode == null) {
-                    eventCode = expense.getEventCode();
-                    teamCode = expense.getTeamCode();
-                    stageStep = expense.getStageStep();
+                if (expenseCode == null) {
+                    log.warn("expenseCode가 null입니다. 건너뜁니다.");
+                    continue;
                 }
                 
-                log.debug("지출 업데이트 완료 - expenseCode: {}, amount: {}", expenseCode, expenseAmount);
-            } else {
-                log.warn("지출 항목을 찾을 수 없습니다. expenseCode: {}", expenseCode);
-                throw new RuntimeException("지출 항목을 찾을 수 없습니다. expenseCode: " + expenseCode);
+                if (expenseAmount == null || expenseAmount.trim().isEmpty()) {
+                    log.warn("expenseAmount가 비어있습니다. expenseCode: {}", expenseCode);
+                    continue;
+                }
+                
+                // 해당 지출 항목 조회 및 업데이트
+                Optional<OperatingExpense> expenseOpt = operatingExpenseRepository.findById(expenseCode);
+                
+                if (expenseOpt.isPresent()) {
+                    OperatingExpense expense = expenseOpt.get();
+                    expense.setExpenseAmount(expenseAmount);
+                    operatingExpenseRepository.save(expense);
+                    
+                    // 첫 번째 지출에서 이벤트/팀/스테이지 정보 추출
+                    if (eventCode == null) {
+                        eventCode = expense.getEventCode();
+                        teamCode = expense.getTeamCode();
+                        stageStep = expense.getStageStep();
+                    }
+                    
+                    log.debug("지출 업데이트 완료 - expenseCode: {}, amount: {}", expenseCode, expenseAmount);
+                } else {
+                    log.warn("지출 항목을 찾을 수 없습니다. expenseCode: {}", expenseCode);
+                    throw new RuntimeException("지출 항목을 찾을 수 없습니다. expenseCode: " + expenseCode);
+                }
             }
-        }
-        
-        log.info("지출 업데이트 완료");
-        
-        // 2. 재무제표 완성 (지출 업데이트 후 자동 실행)
-        if (eventCode != null && teamCode != null && stageStep != null) {
-            completeFinancialStatement(eventCode, teamCode, stageStep);
             
-            // 3. ✅ 역량 업데이트 (재무제표 완성 후 실행)
-            updateTeamCapability(eventCode, teamCode, stageStep, expenses);
-        } else {
-            log.warn("재무제표 완성을 위한 정보가 부족합니다.");
-        }
+            log.info("지출 업데이트 완료");
+            
+            // 2. 재무제표 완성 (지출 업데이트 후 자동 실행)
+            if (eventCode != null && teamCode != null && stageStep != null) {
+                completeFinancialStatement(eventCode, teamCode, stageStep);
+                
+                // 3. ✅ 역량 업데이트 (재무제표 완성 후 실행)
+                updateTeamCapability(eventCode, teamCode, stageStep, expenses);
+            } else {
+                log.warn("재무제표 완성을 위한 정보가 부족합니다.");
+            }
+        });
     }
-    
+
     /**
      * 재무제표 완성
      * TODO: 2차 구현 - 지출 기반 재무제표 자동 생성

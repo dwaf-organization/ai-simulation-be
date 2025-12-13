@@ -2,6 +2,7 @@ package com.example.chatgpt.service;
 
 import com.example.chatgpt.entity.GroupSummary;
 import com.example.chatgpt.repository.GroupSummaryRepository;
+import com.example.chatgpt.util.DatabaseLockManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,9 +21,10 @@ import org.springframework.retry.annotation.EnableRetry;
 public class GroupSummaryService {
     
     private final GroupSummaryRepository groupSummaryRepository;
+    private final DatabaseLockManager lockManager;  // Lock Manager 추가
     
     /**
-     * 그룹 핵심정보 요약 저장/업데이트
+     * 그룹 핵심정보 요약 저장/업데이트 (데드락 방지 적용)
      */
     @Transactional
     public GroupSummary saveGroupSummary(
@@ -36,68 +38,71 @@ public class GroupSummaryService {
         log.info("그룹 요약 저장 시작 - eventCode: {}, teamCode: {}, stageStep: {}", 
                  eventCode, teamCode, stageStep);
         
-        try {
-            // 기존 요약 확인
-            Optional<GroupSummary> existingSummary = groupSummaryRepository
-                .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
-            
-            // 답변에서 핵심 정보 추출
-            String businessType = extractBusinessType(stageAnswers, businessPlan);
-            String coreTechnology = extractCoreTechnology(stageAnswers, businessPlan);
-            String revenueModel = extractRevenueModel(stageAnswers, businessPlan);
-            String keyAnswers = compressAnswers(stageAnswers);
-            String investmentScale = extractInvestmentScale(stageAnswers, userExpenseInputs);
-            String strengths = extractStrengths(stageAnswers, businessPlan);
-            String weaknesses = extractWeaknesses(stageAnswers, businessPlan);
-            String summaryText = generateCompressedSummary(businessPlan, stageAnswers, userExpenseInputs);
-            
-            GroupSummary groupSummary;
-            
-            if (existingSummary.isPresent()) {
-                // 업데이트
-                groupSummary = existingSummary.get();
-                groupSummary.setBusinessType(businessType);
-                groupSummary.setCoreTechnology(coreTechnology);
-                groupSummary.setRevenueModel(revenueModel);
-                groupSummary.setKeyAnswers(keyAnswers);
-                groupSummary.setInvestmentScale(investmentScale);
-                groupSummary.setStrengths(strengths);
-                groupSummary.setWeaknesses(weaknesses);
-                groupSummary.setSummaryText(summaryText);
+        // 데드락 방지를 위한 Lock 적용
+        return lockManager.executeWithLock(DatabaseLockManager.ServiceType.STAGE_SUMMARY, () -> {
+            try {
+                // 기존 요약 확인
+                Optional<GroupSummary> existingSummary = groupSummaryRepository
+                    .findByEventCodeAndTeamCodeAndStageStep(eventCode, teamCode, stageStep);
                 
-                log.info("기존 그룹 요약 업데이트 - summaryId: {}", groupSummary.getSummaryId());
+                // 답변에서 핵심 정보 추출
+                String businessType = extractBusinessType(stageAnswers, businessPlan);
+                String coreTechnology = extractCoreTechnology(stageAnswers, businessPlan);
+                String revenueModel = extractRevenueModel(stageAnswers, businessPlan);
+                String keyAnswers = compressAnswers(stageAnswers);
+                String investmentScale = extractInvestmentScale(stageAnswers, userExpenseInputs);
+                String strengths = extractStrengths(stageAnswers, businessPlan);
+                String weaknesses = extractWeaknesses(stageAnswers, businessPlan);
+                String summaryText = generateCompressedSummary(businessPlan, stageAnswers, userExpenseInputs);
                 
-            } else {
-                // 새로 생성
-                groupSummary = GroupSummary.builder()
-                    .eventCode(eventCode)
-                    .teamCode(teamCode)
-                    .stageStep(stageStep)
-                    .businessType(businessType)
-                    .coreTechnology(coreTechnology)
-                    .revenueModel(revenueModel)
-                    .keyAnswers(keyAnswers)
-                    .investmentScale(investmentScale)
-                    .strengths(strengths)
-                    .weaknesses(weaknesses)
-                    .summaryText(summaryText)
-                    .build();
+                GroupSummary groupSummary;
                 
-                log.info("새 그룹 요약 생성");
+                if (existingSummary.isPresent()) {
+                    // 업데이트
+                    groupSummary = existingSummary.get();
+                    groupSummary.setBusinessType(businessType);
+                    groupSummary.setCoreTechnology(coreTechnology);
+                    groupSummary.setRevenueModel(revenueModel);
+                    groupSummary.setKeyAnswers(keyAnswers);
+                    groupSummary.setInvestmentScale(investmentScale);
+                    groupSummary.setStrengths(strengths);
+                    groupSummary.setWeaknesses(weaknesses);
+                    groupSummary.setSummaryText(summaryText);
+                    
+                    log.info("기존 그룹 요약 업데이트 - summaryId: {}", groupSummary.getSummaryId());
+                    
+                } else {
+                    // 새로 생성
+                    groupSummary = GroupSummary.builder()
+                        .eventCode(eventCode)
+                        .teamCode(teamCode)
+                        .stageStep(stageStep)
+                        .businessType(businessType)
+                        .coreTechnology(coreTechnology)
+                        .revenueModel(revenueModel)
+                        .keyAnswers(keyAnswers)
+                        .investmentScale(investmentScale)
+                        .strengths(strengths)
+                        .weaknesses(weaknesses)
+                        .summaryText(summaryText)
+                        .build();
+                    
+                    log.info("새 그룹 요약 생성");
+                }
+                
+                GroupSummary savedSummary = groupSummaryRepository.save(groupSummary);
+                
+                log.info("그룹 요약 저장 완료 - summaryId: {}, 요약 길이: {}자", 
+                         savedSummary.getSummaryId(), 
+                         savedSummary.getSummaryText() != null ? savedSummary.getSummaryText().length() : 0);
+                
+                return savedSummary;
+                
+            } catch (Exception e) {
+                log.error("그룹 요약 저장 실패", e);
+                throw new RuntimeException("그룹 요약 저장 실패: " + e.getMessage());
             }
-            
-            GroupSummary savedSummary = groupSummaryRepository.save(groupSummary);
-            
-            log.info("그룹 요약 저장 완료 - summaryId: {}, 요약 길이: {}자", 
-                     savedSummary.getSummaryId(), 
-                     savedSummary.getSummaryText() != null ? savedSummary.getSummaryText().length() : 0);
-            
-            return savedSummary;
-            
-        } catch (Exception e) {
-            log.error("그룹 요약 저장 실패", e);
-            throw new RuntimeException("그룹 요약 저장 실패: " + e.getMessage());
-        }
+        });
     }
     
     /**

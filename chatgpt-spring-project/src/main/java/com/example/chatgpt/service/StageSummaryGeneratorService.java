@@ -2,6 +2,7 @@ package com.example.chatgpt.service;
 
 import com.example.chatgpt.entity.*;
 import com.example.chatgpt.repository.*;
+import com.example.chatgpt.util.DatabaseLockManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,9 +24,10 @@ public class StageSummaryGeneratorService {
     private final Stage1BizplanRepository stage1BizplanRepository;
     private final RevenueModelRepository revenueModelRepository;
     private final OpenAiService openAiService;
+    private final DatabaseLockManager lockManager;  // Lock Manager 추가
 
     /**
-     * 스테이지 완료 시 전체 프로세스 실행
+     * 스테이지 완료 시 전체 프로세스 실행 (데드락 방지 적용)
      */
     @Transactional
     public Map<String, Object> generateStageSummary(
@@ -36,32 +38,41 @@ public class StageSummaryGeneratorService {
         
         log.info("스테이지 {} 요약 생성 시작 - eventCode: {}, teamCode: {}", stage, eventCode, teamCode);
         
-        // 1. 답변 데이터를 llm_question 테이블에 업데이트
-        updateAnswersToQuestions(teamCode, stage, answers);
-        
-        // 2. 모든 데이터 수집 (사업계획서, 수익모델, 질문/답변)
-        Map<String, Object> allData = collectAllData(eventCode, teamCode, stage);
-        
-        // 3. Group Summary 생성 및 저장
-        GroupSummary groupSummary = generateAndSaveGroupSummary(eventCode, teamCode, stage, allData);
-        
-        // 4. Operating Expense 생성 및 저장
-        List<OperatingExpense> operatingExpenses = generateAndSaveOperatingExpenses(eventCode, teamCode, stage, allData);
-        
-        // 5. Stage Summary 생성 및 저장
-        StageSummary stageSummary = generateAndSaveStageSummary(eventCode, teamCode, stage, groupSummary);
-        
-        // 6. 결과 응답
-        Map<String, Object> result = new HashMap<>();
-        result.put("groupSummary", groupSummary);
-        result.put("operatingExpenses", operatingExpenses);
-        result.put("stageSummary", stageSummary);
-        result.put("totalAnswers", answers.size());
-        result.put("message", "스테이지 " + stage + " 요약 생성 완료");
-        
-        log.info("스테이지 {} 요약 생성 완료 - teamCode: {}", stage, teamCode);
-        
-        return result;
+        // 데드락 방지를 위한 Lock 적용
+        return lockManager.executeWithLock(DatabaseLockManager.ServiceType.STAGE_SUMMARY, () -> {
+            try {
+                // 1. 답변 데이터를 llm_question 테이블에 업데이트
+                updateAnswersToQuestions(teamCode, stage, answers);
+                
+                // 2. 모든 데이터 수집 (사업계획서, 수익모델, 질문/답변)
+                Map<String, Object> allData = collectAllData(eventCode, teamCode, stage);
+                
+                // 3. Group Summary 생성 및 저장
+                GroupSummary groupSummary = generateAndSaveGroupSummary(eventCode, teamCode, stage, allData);
+                
+                // 4. Operating Expense 생성 및 저장
+                List<OperatingExpense> operatingExpenses = generateAndSaveOperatingExpenses(eventCode, teamCode, stage, allData);
+                
+                // 5. Stage Summary 생성 및 저장
+                StageSummary stageSummary = generateAndSaveStageSummary(eventCode, teamCode, stage, groupSummary);
+                
+                // 6. 결과 응답
+                Map<String, Object> result = new HashMap<>();
+                result.put("groupSummary", groupSummary);
+                result.put("operatingExpenses", operatingExpenses);
+                result.put("stageSummary", stageSummary);
+                result.put("totalAnswers", answers.size());
+                result.put("message", "스테이지 " + stage + " 요약 생성 완료");
+                
+                log.info("스테이지 {} 요약 생성 완료 - teamCode: {}", stage, teamCode);
+                
+                return result;
+                
+            } catch (Exception e) {
+                log.error("스테이지 {} 요약 생성 실패 - eventCode: {}, teamCode: {}", stage, eventCode, teamCode, e);
+                throw new RuntimeException("스테이지 요약 생성 실패: " + e.getMessage());
+            }
+        });
     }
     
     /**

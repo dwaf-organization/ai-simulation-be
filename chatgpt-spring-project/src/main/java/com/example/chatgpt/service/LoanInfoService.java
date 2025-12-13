@@ -11,6 +11,7 @@ import com.example.chatgpt.repository.BankRepository;
 import com.example.chatgpt.repository.FinancialStatementRepository;
 import com.example.chatgpt.repository.LoanBusinessPlanRepository;
 import com.example.chatgpt.repository.LoanInfoRepository;
+import com.example.chatgpt.util.DatabaseLockManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class LoanInfoService {
     private final BankRepository bankRepository;
     private final FinancialStatementRepository financialStatementRepository;
     private final LoanBusinessPlanRepository loanBusinessPlanRepository;
+    private final DatabaseLockManager lockManager;  // Lock Manager 추가
     
     /**
      * 대출정보 목록 조회 (은행명 포함)
@@ -85,43 +87,46 @@ public class LoanInfoService {
     
 
     /**
-     * 대출정보 생성 또는 업데이트 (중복시 덮어쓰기)
+     * 대출정보 생성 또는 업데이트 (중복시 덮어쓰기) (데드락 방지 적용)
      */
     @Transactional
     public Integer createOrUpdateLoanInfo(LoanInfoCreateReqDto request) {
-        try {
-            log.info("대출정보 생성/업데이트 요청 - eventCode: {}, teamCode: {}, stageStep: {}", 
-                     request.getEventCode(), request.getTeamCode(), request.getStageStep());
-            
-            // 2. 기존 데이터 확인 (중복 체크)
-            Optional<LoanInfo> existingLoan = loanInfoRepository
-                .findByEventCodeAndTeamCodeAndStageStep(
-                    request.getEventCode(), request.getTeamCode(), request.getStageStep());
-            
-            LoanInfo loanInfo;
-            
-            if (existingLoan.isPresent()) {
-                // 3. 기존 데이터가 있으면 업데이트 (덮어쓰기)
-                loanInfo = existingLoan.get();
-                updateLoanInfoFields(loanInfo, request);
-                log.info("기존 대출정보 업데이트 - loanCode: {}", loanInfo.getLoanCode());
+        log.info("대출정보 생성/업데이트 요청 - eventCode: {}, teamCode: {}, stageStep: {}", 
+                 request.getEventCode(), request.getTeamCode(), request.getStageStep());
+        
+        // 데드락 방지를 위한 Lock 적용
+        return lockManager.executeWithLock(DatabaseLockManager.ServiceType.FINANCIAL_STATEMENT, () -> {
+            try {
+                // 2. 기존 데이터 확인 (중복 체크)
+                Optional<LoanInfo> existingLoan = loanInfoRepository
+                    .findByEventCodeAndTeamCodeAndStageStep(
+                        request.getEventCode(), request.getTeamCode(), request.getStageStep());
                 
-            } else {
-                // 4. 새로운 데이터 생성
-                loanInfo = createNewLoanInfo(request);
-                log.info("새 대출정보 생성");
+                LoanInfo loanInfo;
+                
+                if (existingLoan.isPresent()) {
+                    // 3. 기존 데이터가 있으면 업데이트 (덮어쓰기)
+                    loanInfo = existingLoan.get();
+                    updateLoanInfoFields(loanInfo, request);
+                    log.info("기존 대출정보 업데이트 - loanCode: {}", loanInfo.getLoanCode());
+                    
+                } else {
+                    // 4. 새로운 데이터 생성
+                    loanInfo = createNewLoanInfo(request);
+                    log.info("새 대출정보 생성");
+                }
+                
+                // 5. 저장
+                LoanInfo savedLoan = loanInfoRepository.save(loanInfo);
+                
+                log.info("대출정보 저장 완료 - loanCode: {}", savedLoan.getLoanCode());
+                return savedLoan.getLoanCode();
+                
+            } catch (Exception e) {
+                log.error("대출정보 생성/업데이트 실패", e);
+                throw new RuntimeException("대출정보 처리 중 오류가 발생했습니다: " + e.getMessage());
             }
-            
-            // 5. 저장
-            LoanInfo savedLoan = loanInfoRepository.save(loanInfo);
-            
-            log.info("대출정보 저장 완료 - loanCode: {}", savedLoan.getLoanCode());
-            return savedLoan.getLoanCode();
-            
-        } catch (Exception e) {
-            log.error("대출정보 생성/업데이트 실패", e);
-            throw new RuntimeException("대출정보 처리 중 오류가 발생했습니다: " + e.getMessage());
-        }
+        });
     }
     
     /**
